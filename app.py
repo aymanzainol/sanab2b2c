@@ -37,7 +37,7 @@ st.markdown("""
         margin-bottom: 15px;
         box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         text-align: center;
-        border-right: 10px solid; /* الحافة الملونة على اليمين */
+        border-right: 10px solid; 
     }
     .ok-bg { background-color: #d4edda; border-right-color: #28a745; color: #155724; }
     .warning-bg { background-color: #fff3cd; border-right-color: #ffc107; color: #856404; }
@@ -136,9 +136,14 @@ try:
     tab1, tab2, tab3 = st.tabs(["📊 الإحصائيات", "🤖 مساعد البيانات", "📋 التقارير"])
 
     with tab1:
+        # تم تصحيح العداد هنا وحذف 'flipped'
         fig_gauge = go.Figure(go.Indicator(
-            mode = "gauge+number", value = avg_total,
-            gauge = {'axis': {'range': [0, 100], 'flipped': True}, 'bar': {'color': "#10ac84"}},
+            mode = "gauge+number", 
+            value = avg_total,
+            gauge = {
+                'axis': {'range': [0, 100]},
+                'bar': {'color': "#10ac84"}
+            },
             title = {'text': "مؤشر الإنجاز الكلي 📈", 'font': {'family': 'Cairo'}}
         ))
         fig_gauge.update_layout(height=300, margin=dict(t=50, b=20), dragmode=False)
@@ -175,8 +180,21 @@ try:
     )
     
     fig_bar.update_traces(texttemplate='%{text}%', textposition='outside')
-    fig_bar.update_xaxes(autorange="reversed", fixedrange=True, tickangle=-45, automargin=True, title={'text': 'رقم الموقع 📍', 'standoff': 50})
-    fig_bar.update_yaxes(side="right", fixedrange=True, range=[0, 120], title='نسبة الجاهزية')
+    
+    # تحسين المحاور لتناسب الاتجاه العربي
+    fig_bar.update_xaxes(
+        autorange="reversed", 
+        fixedrange=True, 
+        tickangle=-45, 
+        automargin=True, 
+        title={'text': 'رقم الموقع 📍', 'standoff': 50}
+    )
+    fig_bar.update_yaxes(
+        side="right", 
+        fixedrange=True, 
+        range=[0, 120], 
+        title='نسبة الجاهزية'
+    )
     fig_bar.update_layout(height=600, dragmode=False, margin=dict(b=180), showlegend=False)
     
     st.plotly_chart(fig_bar, use_container_width=True, config={'displayModeBar': False})
