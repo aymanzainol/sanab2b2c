@@ -31,7 +31,6 @@ st.markdown("""
         background-color: #10ac84;
         color: white;
     }
-    /* تحسين شكل الراديو بوتن للجوال */
     div[data-testid="stRadio"] > div {
         flex-direction: row !important;
         gap: 20px;
@@ -75,7 +74,6 @@ def load_data():
     df['Unified_ID'] = df['Unified_ID'].fillna("غير محدد").astype(str)
     return df.drop_duplicates(subset=['Unified_ID'], keep='last'), checklist_cols
 
-# أسماء الشركات كما تظهر في البيانات لضمان دقة الفلتر
 SANA_NAME = 'سنا (مشارق الذهبية)'
 RAKEEN_NAME = 'ركين (مشارق المتميزة)'
 COMPANY_COLORS = {SANA_NAME: '#e74c3c', RAKEEN_NAME: '#795548'}
@@ -95,8 +93,10 @@ try:
             gauge = {'axis': {'range': [0, 100]}, 'bar': {'color': "#10ac84"}},
             title = {'text': "الإنجاز الكلي", 'font': {'family': 'Cairo'}}
         ))
-        fig_gauge.update_layout(height=250, margin=dict(l=20, r=20, t=40, b=20))
-        st.plotly_chart(fig_gauge, use_container_width=True)
+        
+        # قفل مخطط العداد (Gauge)
+        fig_gauge.update_layout(height=250, margin=dict(l=20, r=20, t=40, b=20), dragmode=False)
+        st.plotly_chart(fig_gauge, use_container_width=True, config={'displayModeBar': False})
 
     with tab2:
         st.markdown('<div class="ai-card">', unsafe_allow_html=True)
@@ -132,18 +132,12 @@ try:
             hide_index=True, use_container_width=True
         )
 
-    # --- قسم الفلتر والمخطط البياني الرأسي ---
+    # --- قسم المخطط البياني الرأسي المقفل للجوال ---
     st.divider()
     st.subheader("📊 مقارنة الجاهزية لكل موقع")
     
-    # إضافة أزرار الفلترة (Filter Buttons)
-    filter_option = st.radio(
-        "عرض المواقع حسب الشركة:",
-        ["الكل", "سنا", "ركين"],
-        horizontal=True
-    )
+    filter_option = st.radio("عرض المواقع حسب الشركة:", ["الكل", "سنا", "ركين"], horizontal=True)
 
-    # تطبيق منطق الفلترة على البيانات
     if filter_option == "سنا":
         chart_df = df[df['شركة'] == SANA_NAME]
     elif filter_option == "ركين":
@@ -151,7 +145,6 @@ try:
     else:
         chart_df = df
 
-    # رسم المخطط بناءً على البيانات المفلترة
     fig_bar = px.bar(
         chart_df.sort_values('Overall_Score', ascending=False), 
         x='Unified_ID', 
@@ -160,16 +153,25 @@ try:
         text='Overall_Score',
         color_discrete_map=COMPANY_COLORS
     )
+    
     fig_bar.update_traces(texttemplate='%{text}%', textposition='outside')
+    
+    # قفل المخطط بالكامل لمنع التكبير والسحب المزعج على الجوال
+    fig_bar.update_xaxes(fixedrange=True) # منع التكبير على محور X
+    fig_bar.update_yaxes(fixedrange=True) # منع التكبير على محور Y
+    
     fig_bar.update_layout(
         font_family="Cairo",
         height=500,
+        dragmode=False, # تعطيل السحب
         xaxis={'title': 'رقم الموقع', 'type': 'category'},
         yaxis={'title': 'نسبة الجاهزية %', 'range': [0, 120]},
         margin=dict(l=0, r=0, t=30, b=0),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
-    st.plotly_chart(fig_bar, use_container_width=True)
+    
+    # إخفاء شريط أدوات Plotly (المكبرات والكاميرا) ليكون المظهر نظيفاً
+    st.plotly_chart(fig_bar, use_container_width=True, config={'displayModeBar': False})
 
 except Exception as e:
     st.error(f"خطأ: {e}")
