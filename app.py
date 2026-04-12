@@ -20,21 +20,27 @@ st.markdown("""
     }
 
     /* تنسيق فقاعات الدردشة في الصفحة الجديدة */
-    .chat-container {
-        border: 1px solid #e6e9ef;
-        border-radius: 10px;
-        padding: 20px;
-        background-color: #ffffff;
-        margin-bottom: 20px;
+    .bot-msg { 
+        background: #f0f2f6; 
+        border-radius: 15px; 
+        padding: 15px; 
+        margin: 10px 0; 
+        border-right: 5px solid #10ac84; 
+        text-align: right;
     }
-    .bot-msg { background: #f0f2f6; border-radius: 15px; padding: 15px; margin: 10px 0; border-right: 5px solid #10ac84; }
-    .user-msg { background: #e3f2fd; border-radius: 15px; padding: 15px; margin: 10px 0; border-right: 5px solid #1976d2; }
+    .user-msg { 
+        background: #e3f2fd; 
+        border-radius: 15px; 
+        padding: 15px; 
+        margin: 10px 0; 
+        border-right: 5px solid #1976d2; 
+        text-align: right;
+    }
     
     /* تنسيق بطاقات الحالة */
     .status-card { padding: 20px; border-radius: 15px; margin-bottom: 15px; text-align: center; border-right: 10px solid; }
     .ok-bg { background-color: #d4edda; border-right-color: #28a745; color: #155724; }
     .warning-bg { background-color: #fff3cd; border-right-color: #ffc107; color: #856404; }
-    .danger-bg { background-color: #f8d7da; border-right-color: #dc3545; color: #721c24; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -74,19 +80,18 @@ def chat_logic(query, df):
     if not match.empty:
         row = match.iloc[0]
         msg = f"📍 **بيانات الموقع: {row['Unified_ID']}**\n\n"
-        msg += f"• الشركة: {row['شركة']}\n"
+        msg += f"• الفريق: {row['شركة']}\n"
         msg += f"• نسبة الإنجاز: {row['Overall_Score']}%\n"
-        msg += f"• النواقص: {row['Missing_Details'] if row['Missing_Details'] else 'لا يوجد نواقص ✨'}"
+        msg += f"• النواقص الحالية: {row['Missing_Details'] if row['Missing_Details'] else 'لا يوجد نواقص، العمل مكتمل! ✨'}"
         return msg
-    return "عذراً، لم أجد بيانات لهذا الرقم. تأكد من كتابة الرقم الصحيح للموقع 🧐"
+    return "عذراً، لم أجد هذا الموقع في الـ Masterdata. تأكد من إدخال الرقم الصحيح. 🧐"
 
-# 4. إدارة التنقل بين الصفحات
+# 4. نظام التنقل (Sidebar Navigation)
 with st.sidebar:
-    st.image("https://img.icons8.com/clouds/100/null/manager.png") # أيقونة بسيطة
-    st.title("القائمة الرئيسية")
-    page = st.radio("انتقل إلى:", ["📊 لوحة الإحصائيات", "🤖 المساعد الذكي (Chatbot)"])
+    st.title("🧭 التنقل")
+    page = st.radio("اختر الصفحة:", ["📊 الإحصائيات والتقارير", "🤖 المساعد الذكي (الدردشة)"])
     st.divider()
-    if st.button("🔄 تحديث البيانات"):
+    if st.button("🔄 تحديث البيانات الحية"):
         st.cache_data.clear()
         st.rerun()
 
@@ -95,56 +100,47 @@ try:
     df, checklist_cols = load_data()
 
     # --- الصفحة الأولى: لوحة الإحصائيات ---
-    if page == "📊 لوحة الإحصائيات":
+    if page == "📊 الإحصائيات والتقارير":
         st.title("🕋 لوحة قطاع المشاعر b2b2c")
         avg_total = int(df['Overall_Score'].mean())
         
-        # كروت الحالة
+        # كروت الحالة السريعة
         if avg_total >= 90:
-            st.markdown(f'<div class="status-card ok-bg"><h2>الوضع ممتاز ✅</h2>معدل الجاهزية العام: {avg_total}%</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="status-card ok-bg"><h2>الوضع العام: ممتاز ✅</h2>المعدل التراكمي: {avg_total}%</div>', unsafe_allow_html=True)
         else:
-            st.markdown(f'<div class="status-card warning-bg"><h2>يحتاج متابعة ⚠️</h2>معدل الجاهزية العام: {avg_total}%</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="status-card warning-bg"><h2>الوضع العام: يحتاج متابعة ⚠️</h2>المعدل التراكمي: {avg_total}%</div>', unsafe_allow_html=True)
 
-        col_left, col_right = st.columns(2)
-        with col_left:
-            fig_gauge = go.Figure(go.Indicator(
-                mode="gauge+number", value=avg_total,
-                gauge={'axis': {'range': [0, 100]}, 'bar': {'color': "#10ac84"}},
-                title={'text': "مؤشر الإنجاز الكلي"}
-            ))
-            st.plotly_chart(fig_gauge, use_container_width=True)
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            fig_bar = px.bar(df, x='Unified_ID', y='Overall_Score', color='Overall_Score', text='Overall_Score', 
+                             color_continuous_scale='Greens', title="مستوى الجاهزية لكل موقع")
+            fig_bar.update_xaxes(autorange="reversed")
+            st.plotly_chart(fig_bar, use_container_width=True)
         
-        with col_right:
-            st.subheader("📋 ملخص المواقع")
+        with col2:
+            st.subheader("🔍 تفاصيل سريعة")
             st.dataframe(df[['Unified_ID', 'Overall_Score']].rename(columns={'Unified_ID': 'الموقع', 'Overall_Score': '%'}))
 
-        # المخطط البياني
-        st.divider()
-        fig_bar = px.bar(df, x='Unified_ID', y='Overall_Score', color='Overall_Score', text='Overall_Score', title="مقارنة الجاهزية بين المواقع")
-        fig_bar.update_xaxes(autorange="reversed")
-        st.plotly_chart(fig_bar, use_container_width=True)
-
-    # --- الصفحة الثانية: المساعد الذكي ---
-    elif page == "🤖 المساعد الذكي (Chatbot)":
-        st.title("🤖 مساعد Masterdata الذكي")
-        st.write("أهلاً بك في صفحة المساعد. يمكنك السؤال عن أي موقع أو الاستفسار عن تفاصيل Masterdata.")
+    # --- الصفحة الثانية: المساعد الذكي (Chatbot) ---
+    elif page == "🤖 المساعد الذكي (الدردشة)":
+        st.title("🤖 المساعد الذكي للبيانات")
+        st.info("اكتب رقم الموقع في الأسفل وسأقوم بسحب البيانات لك فوراً من الـ Masterdata.")
         
-        # تهيئة تاريخ الرسائل
+        # حاوية المحادثة
         if "messages" not in st.session_state:
-            st.session_state.messages = [{"role": "bot", "content": "أهلاً بك! أنا بطل قطاع المشاعر الذكي، أعطني رقم الموقع وسأزودك بكل تفاصيله."}]
+            st.session_state.messages = [{"role": "bot", "content": "أهلاً بك! أنا مساعدك الذكي لقطاع المشاعر. كيف يمكنني مساعدتك اليوم؟"}]
 
-        # عرض الرسائل
         for m in st.session_state.messages:
             cls = "bot-msg" if m["role"] == "bot" else "user-msg"
             icon = "🤖" if m["role"] == "bot" else "👤"
             st.markdown(f'<div class="{cls}">{icon} {m["content"]}</div>', unsafe_allow_html=True)
 
-        # مدخل الدردشة
-        if prompt := st.chat_input("اكتب رقم الموقع هنا (مثال: الهند 20)"):
+        # منطقة إدخال المستخدم
+        if prompt := st.chat_input("أدخل رقم الموقع (مثال: الهند 20)"):
             st.session_state.messages.append({"role": "user", "content": prompt})
             response = chat_logic(prompt, df)
             st.session_state.messages.append({"role": "bot", "content": response})
             st.rerun()
 
 except Exception as e:
-    st.error(f"خطأ في تحميل البيانات: {e}")
+    st.error(f"⚠️ حدث خطأ أثناء الاتصال بالبيانات: {e}")
