@@ -4,8 +4,8 @@ import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
 
-# 1. إعدادات الصفحة والهوية البصرية (تم تحديث عنوان المتصفح)
-st.set_page_config(page_title="لوحة قطاع المشاعر b2b2c 🚀", layout="wide", initial_sidebar_state="collapsed")
+# 1. إعدادات الصفحة والهوية البصرية
+st.set_page_config(page_title="Mina Readiness Hero 🚀", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""
     <style>
@@ -35,7 +35,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 2. منطق تحليل البيانات
+# 2. منطق تحليل البيانات الأساسي
 def analyze_readiness(row, checklist_cols):
     scores = []
     missing_items = []
@@ -55,7 +55,7 @@ def analyze_readiness(row, checklist_cols):
     avg_score = np.mean(scores) if scores else 0
     return pd.Series([round(avg_score), ", ".join(missing_items)])
 
-# 3. جلب البيانات
+# 3. جلب البيانات من المصدر
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1pN31S92Xa4m-hilE-e56F9T6LuOhZLwPq6YWEnWP_xk/export?format=csv"
 
 @st.cache_data(ttl=60)
@@ -64,6 +64,7 @@ def load_data():
     df.columns = [col.strip() for col in df.columns]
     checklist_cols = df.columns[7:37]
     df[['Overall_Score', 'Missing_Details']] = df.apply(lambda row: analyze_readiness(row, checklist_cols), axis=1)
+    # دمج معرفات المواقع الذكية
     df['Unified_ID'] = np.where(df['شركة'].str.contains('ركين', na=False), df.iloc[:, 5], df.iloc[:, 6])
     df['Unified_ID'] = df['Unified_ID'].fillna("موقع غير معروف").astype(str)
     return df.drop_duplicates(subset=['Unified_ID'], keep='last'), checklist_cols
@@ -88,10 +89,9 @@ try:
     df, checklist_cols = load_data()
     avg_total = int(df['Overall_Score'].mean())
 
-    # تم تحديث العنوان الرئيسي هنا
-    st.title("🕋 لوحة قطاع المشاعر b2b2c")
+    st.title("🕋 بطل الجاهزية | ReadyHero")
 
-    # 5. قسم التقييم الفوري
+    # 5. قسم التقييم الفوري (Is it OK?)
     st.write("### 📢 حالة الجاهزية الحالية")
     if avg_total >= 90:
         st.markdown(f'<div class="status-card ok-bg"><h2>الوضع ممتاز (OK) ✅</h2>المعدل العام: {avg_total}%</div>', unsafe_allow_html=True)
@@ -100,9 +100,11 @@ try:
     else:
         st.markdown(f'<div class="status-card danger-bg"><h2>وضع حرج جداً (NOT OK) 🚨</h2>المعدل العام: {avg_total}%</div>', unsafe_allow_html=True)
 
+    # التبويبات الرئيسية
     tab1, tab2, tab3 = st.tabs(["📊 الإحصائيات", "🤖 مساعد البيانات", "📋 التقارير"])
 
     with tab1:
+        # مخطط العداد (Gauge)
         fig_gauge = go.Figure(go.Indicator(
             mode = "gauge+number", value = avg_total,
             gauge = {'axis': {'range': [0, 100]}, 'bar': {'color': "#10ac84"}},
@@ -118,7 +120,7 @@ try:
         st.subheader("📋 تفاصيل جميع المواقع")
         st.dataframe(df[['Unified_ID', 'Overall_Score', 'Missing_Details']].rename(columns={'Unified_ID': '📍 الموقع', 'Overall_Score': '🏁 %'}), use_container_width=True, hide_index=True)
 
-    # --- المخطط المقارن ---
+    # --- المخطط المقارن (المقفل والمحسن) ---
     st.divider()
     st.subheader("📊 مقارنة المواقع حسب الفريق")
     
@@ -142,7 +144,7 @@ try:
     
     st.plotly_chart(fig_bar, use_container_width=True, config={'displayModeBar': False})
 
-    # --- نظام الدردشة الجانبي ---
+    # --- نظام الدردشة الجانبي (Masterdata Bot) ---
     with st.sidebar:
         st.title("🤖 المساعد الذكي")
         if 'messages' not in st.session_state:
