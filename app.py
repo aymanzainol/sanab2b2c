@@ -94,7 +94,6 @@ try:
             title = {'text': "الإنجاز الكلي", 'font': {'family': 'Cairo'}}
         ))
         
-        # قفل مخطط العداد (Gauge)
         fig_gauge.update_layout(height=250, margin=dict(l=20, r=20, t=40, b=20), dragmode=False)
         st.plotly_chart(fig_gauge, use_container_width=True, config={'displayModeBar': False})
 
@@ -132,7 +131,7 @@ try:
             hide_index=True, use_container_width=True
         )
 
-    # --- قسم المخطط البياني الرأسي المقفل للجوال ---
+    # --- قسم المخطط البياني المقفل مع حل مشكلة التداخل ---
     st.divider()
     st.subheader("📊 مقارنة الجاهزية لكل موقع")
     
@@ -156,21 +155,24 @@ try:
     
     fig_bar.update_traces(texttemplate='%{text}%', textposition='outside')
     
-    # قفل المخطط بالكامل لمنع التكبير والسحب المزعج على الجوال
-    fig_bar.update_xaxes(fixedrange=True) # منع التكبير على محور X
-    fig_bar.update_yaxes(fixedrange=True) # منع التكبير على محور Y
+    # قفل المحاور لمنع التكبير/التصغير المزعج
+    fig_bar.update_xaxes(fixedrange=True)
+    fig_bar.update_yaxes(fixedrange=True)
     
     fig_bar.update_layout(
         font_family="Cairo",
-        height=500,
-        dragmode=False, # تعطيل السحب
-        xaxis={'title': 'رقم الموقع', 'type': 'category'},
+        height=550, # زيادة بسيطة في الطول لاستيعاب النص
+        dragmode=False,
+        xaxis={
+            'title': {'text': 'رقم الموقع', 'standoff': 40}, # 🟢 دفع العنوان للأسفل
+            'type': 'category',
+            'tickangle': -45 # 🟢 إمالة أرقام المواقع لكي لا تتداخل
+        },
         yaxis={'title': 'نسبة الجاهزية %', 'range': [0, 120]},
-        margin=dict(l=0, r=0, t=30, b=0),
+        margin=dict(l=0, r=0, t=30, b=80), # 🟢 زيادة المساحة السفلية (Bottom Margin)
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
     
-    # إخفاء شريط أدوات Plotly (المكبرات والكاميرا) ليكون المظهر نظيفاً
     st.plotly_chart(fig_bar, use_container_width=True, config={'displayModeBar': False})
 
 except Exception as e:
