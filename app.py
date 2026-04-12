@@ -31,6 +31,11 @@ st.markdown("""
         background-color: #10ac84;
         color: white;
     }
+    /* تحسين شكل الراديو بوتن للجوال */
+    div[data-testid="stRadio"] > div {
+        flex-direction: row !important;
+        gap: 20px;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -70,7 +75,10 @@ def load_data():
     df['Unified_ID'] = df['Unified_ID'].fillna("غير محدد").astype(str)
     return df.drop_duplicates(subset=['Unified_ID'], keep='last'), checklist_cols
 
-COMPANY_COLORS = {'سنا (مشارق الذهبية)': '#e74c3c', 'ركين (مشارق المتميزة)': '#795548'}
+# أسماء الشركات كما تظهر في البيانات لضمان دقة الفلتر
+SANA_NAME = 'سنا (مشارق الذهبية)'
+RAKEEN_NAME = 'ركين (مشارق المتميزة)'
+COMPANY_COLORS = {SANA_NAME: '#e74c3c', RAKEEN_NAME: '#795548'}
 
 # --- الواجهة ---
 try:
@@ -108,7 +116,7 @@ try:
         st.markdown('</div>', unsafe_allow_html=True)
 
         st.subheader("🔍 استعلام سريع")
-        selected_id = st.selectbox("رقم الموقع:", df['Unified_ID'].unique())
+        selected_id = st.selectbox("اختر رقم الموقع:", df['Unified_ID'].unique())
         site_row = df[df['Unified_ID'] == selected_id].iloc[0]
         st.metric("الجاهزية", f"{site_row['Overall_Score']}%")
         if site_row['Missing_Details']:
@@ -124,11 +132,28 @@ try:
             hide_index=True, use_container_width=True
         )
 
-    # --- المخطط الرأسي (النمط القديم الواضح) ---
+    # --- قسم الفلتر والمخطط البياني الرأسي ---
     st.divider()
     st.subheader("📊 مقارنة الجاهزية لكل موقع")
+    
+    # إضافة أزرار الفلترة (Filter Buttons)
+    filter_option = st.radio(
+        "عرض المواقع حسب الشركة:",
+        ["الكل", "سنا", "ركين"],
+        horizontal=True
+    )
+
+    # تطبيق منطق الفلترة على البيانات
+    if filter_option == "سنا":
+        chart_df = df[df['شركة'] == SANA_NAME]
+    elif filter_option == "ركين":
+        chart_df = df[df['شركة'] == RAKEEN_NAME]
+    else:
+        chart_df = df
+
+    # رسم المخطط بناءً على البيانات المفلترة
     fig_bar = px.bar(
-        df.sort_values('Overall_Score', ascending=False), 
+        chart_df.sort_values('Overall_Score', ascending=False), 
         x='Unified_ID', 
         y='Overall_Score', 
         color='شركة', 
