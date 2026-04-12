@@ -131,7 +131,7 @@ try:
             hide_index=True, use_container_width=True
         )
 
-    # --- قسم المخطط البياني المقفل مع حل مشكلة التداخل ---
+    # --- قسم المخطط البياني المقفل مع حل مشكلة التداخل بشكل نهائي ---
     st.divider()
     st.subheader("📊 مقارنة الجاهزية لكل موقع")
     
@@ -155,21 +155,26 @@ try:
     
     fig_bar.update_traces(texttemplate='%{text}%', textposition='outside')
     
-    # قفل المحاور لمنع التكبير/التصغير المزعج
-    fig_bar.update_xaxes(fixedrange=True)
-    fig_bar.update_yaxes(fixedrange=True)
+    # 🟢 إعدادات محور X لتجنب التداخل تماماً
+    fig_bar.update_xaxes(
+        fixedrange=True, 
+        tickangle=-45,         # إمالة النص
+        automargin=True,       # السماح للمخطط بتوسيع نفسه تلقائياً ليناسب طول الكلمات
+        title_standoff=40      # دفع عنوان المحور للأسفل بعيداً عن الكلمات المائلة
+    )
+    
+    fig_bar.update_yaxes(
+        fixedrange=True,
+        title='نسبة الجاهزية %', 
+        range=[0, 120]
+    )
     
     fig_bar.update_layout(
         font_family="Cairo",
-        height=550, # زيادة بسيطة في الطول لاستيعاب النص
+        height=600,            # 🟢 زيادة الارتفاع الكلي للمخطط لإعطاء مساحة أكبر
         dragmode=False,
-        xaxis={
-            'title': {'text': 'رقم الموقع', 'standoff': 40}, # 🟢 دفع العنوان للأسفل
-            'type': 'category',
-            'tickangle': -45 # 🟢 إمالة أرقام المواقع لكي لا تتداخل
-        },
-        yaxis={'title': 'نسبة الجاهزية %', 'range': [0, 120]},
-        margin=dict(l=0, r=0, t=30, b=80), # 🟢 زيادة المساحة السفلية (Bottom Margin)
+        xaxis_title="رقم الموقع",
+        margin=dict(l=0, r=0, t=30, b=150), # 🟢 زيادة الهامش السفلي بشكل كبير جداً (b=150)
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
     
