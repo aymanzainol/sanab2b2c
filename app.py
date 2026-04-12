@@ -4,60 +4,37 @@ import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
 
-# 1. إعدادات الصفحة - وضع "wide" مع تحسينات للموبايل
+# 1. إعدادات الصفحة والتنسيق المتجاوب
 st.set_page_config(page_title="Mina Readiness Dashboard", layout="wide", initial_sidebar_state="collapsed")
 
-# 2. CSS مخصص لضمان تجاوب الواجهة مع الجوال (Mobile Optimized CSS)
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
-    
     html, body, [class*="css"], .stText, .stMarkdown {
         font-family: 'Cairo', sans-serif;
         direction: RTL;
         text-align: right;
     }
-
-    /* تحسين شكل البطاقات للجوال */
     .ai-card {
         background: #ffffff;
-        border-right: 5px solid #10ac84;
-        padding: 15px;
-        border-radius: 10px;
-        margin-bottom: 15px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        border-right: 6px solid #10ac84;
+        padding: 20px;
+        border-radius: 12px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
     }
-
-    /* تكبير الأزرار لتسهيل اللمس على الجوال */
     .stButton>button {
         width: 100%;
         height: 50px;
         border-radius: 12px;
         font-size: 18px !important;
-        margin-top: 10px;
-    }
-
-    /* تحسين عرض التبويبات Tabs */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 10px;
-    }
-    .stTabs [data-baseweb="tab"] {
-        padding: 10px 15px;
-        background-color: #f8f9fa;
-        border-radius: 8px 8px 0 0;
-    }
-
-    /* إخفاء المسافات الزائدة في الجوال */
-    .block-container {
-        padding-top: 2rem;
-        padding-bottom: 2rem;
-        padding-left: 1rem;
-        padding-right: 1rem;
+        background-color: #10ac84;
+        color: white;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# 3. وظيفة المعالجة الذكية لاستخراج النواقص
+# 2. منطق التحليل الذكي
 def analyze_readiness(row, checklist_cols):
     scores = []
     missing_items = []
@@ -80,7 +57,7 @@ def analyze_readiness(row, checklist_cols):
     avg_score = np.mean(scores) if scores else 0
     return pd.Series([round(avg_score), ", ".join(missing_items)])
 
-# 4. جلب البيانات
+# 3. تحميل البيانات
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1pN31S92Xa4m-hilE-e56F9T6LuOhZLwPq6YWEnWP_xk/export?format=csv"
 
 @st.cache_data(ttl=60)
@@ -95,79 +72,83 @@ def load_data():
 
 COMPANY_COLORS = {'سنا (مشارق الذهبية)': '#e74c3c', 'ركين (مشارق المتميزة)': '#795548'}
 
-# --- البداية ---
+# --- الواجهة ---
 try:
     df, checklist_cols = load_data()
 
-    # العنوان الرئيسي بشكل مبسط للجوال
-    st.title("🕋 جاهزية مخيمات منى")
+    st.title("🕋 لوحة جاهزية مخيمات منى")
     
-    # تبويبات علوية سهلة التصفح
-    tab1, tab2, tab3 = st.tabs(["📊 عام", "🤖 النواقص", "📋 المواقع"])
+    tab1, tab2, tab3 = st.tabs(["📊 الملخص", "🤖 التحليل الذكي", "📋 التقارير"])
 
     with tab1:
-        # المؤشر العام بحجم متجاوب
         avg_total = int(df['Overall_Score'].mean())
         fig_gauge = go.Figure(go.Indicator(
             mode = "gauge+number", value = avg_total,
             gauge = {'axis': {'range': [0, 100]}, 'bar': {'color': "#10ac84"}},
-            title = {'text': "الإنجاز العام", 'font': {'family': 'Cairo', 'size': 20}}
+            title = {'text': "الإنجاز الكلي", 'font': {'family': 'Cairo'}}
         ))
-        fig_gauge.update_layout(margin=dict(l=20, r=20, t=50, b=20), height=300)
+        fig_gauge.update_layout(height=250, margin=dict(l=20, r=20, t=40, b=20))
         st.plotly_chart(fig_gauge, use_container_width=True)
 
     with tab2:
         st.markdown('<div class="ai-card">', unsafe_allow_html=True)
-        st.subheader("💡 أين نحتاج للتدخل؟")
-        
-        # تحليل النواقص وربطها بالمواقع
-        missing_list = []
+        st.subheader("💡 نواقص بنود العمل")
+        missing_summary = []
         for col in checklist_cols:
-            sites = df[df[col].astype(str).str.contains('لا|غير مطابق|لم يتم|0%', na=False)]['Unified_ID'].tolist()
-            if sites:
-                missing_list.append({"البند": col, "المواقع": " ، ".join(sites)})
+            bad_sites = df[df[col].astype(str).str.contains('لا|غير مطابق|لم يتم|0%', na=False)]['Unified_ID'].tolist()
+            if bad_sites:
+                missing_summary.append({"البند": col, "المواقع": " ، ".join(bad_sites)})
         
-        if missing_list:
-            for item in missing_list[:8]: # عرض أهم 8 نواقص لتجنب الإطالة في الجوال
-                with st.expander(f"🔴 {item['البند']}"):
-                    st.write(f"المواقع المتأثرة: **{item['المواقع']}**")
+        if missing_summary:
+            for item in missing_summary:
+                with st.expander(f"❌ {item['البند']}"):
+                    st.write(f"المواقع الناقصة: **{item['المواقع']}**")
         else:
-            st.success("جميع المتطلبات مكتملة!")
+            st.success("جميع البنود مكتملة!")
         st.markdown('</div>', unsafe_allow_html=True)
 
-        st.divider()
-        st.subheader("🔍 ابحث عن موقع")
-        site_id = st.selectbox("رقم الموقع:", df['Unified_ID'].unique())
-        s_data = df[df['Unified_ID'] == site_id].iloc[0]
-        
-        st.metric("نسبة الجاهزية", f"{s_data['Overall_Score']}%")
-        if s_data['Missing_Details']:
-            st.error(f"⚠️ النواقص: {s_data['Missing_Details']}")
-        else:
-            st.success("✅ الموقع جاهز")
+        st.subheader("🔍 استعلام سريع")
+        selected_id = st.selectbox("رقم الموقع:", df['Unified_ID'].unique())
+        site_row = df[df['Unified_ID'] == selected_id].iloc[0]
+        st.metric("الجاهزية", f"{site_row['Overall_Score']}%")
+        if site_row['Missing_Details']:
+            st.warning(f"النواقص: {site_row['Missing_Details']}")
 
     with tab3:
-        # جدول مبسط وسهل التمرير عرضياً للجوال
-        st.subheader("📋 قائمة المواقع")
-        mini_df = df[['Unified_ID', 'Overall_Score', 'Missing_Details']].rename(
-            columns={'Unified_ID': 'الموقع', 'Overall_Score': '%', 'Missing_Details': 'النواقص'}
+        st.subheader("📋 تفاصيل المواقع")
+        st.data_editor(
+            df[['Unified_ID', 'Overall_Score', 'Missing_Details']].rename(
+                columns={'Unified_ID': 'الموقع', 'Overall_Score': 'إنجاز %', 'Missing_Details': 'النواقص'}
+            ),
+            column_config={"إنجاز %": st.column_config.ProgressColumn(min_value=0, max_value=100, format="%d%%")},
+            hide_index=True, use_container_width=True
         )
-        st.dataframe(mini_df, use_container_width=True, hide_index=True)
 
-    # مخطط الأعمدة في الأسفل
+    # --- المخطط الرأسي (النمط القديم الواضح) ---
     st.divider()
+    st.subheader("📊 مقارنة الجاهزية لكل موقع")
     fig_bar = px.bar(
-        df.sort_values('Overall_Score'), x='Overall_Score', y='Unified_ID', 
-        color='شركة', orientation='h', # تحويله لأفقي لسهولة القراءة في الجوال
+        df.sort_values('Overall_Score', ascending=False), 
+        x='Unified_ID', 
+        y='Overall_Score', 
+        color='شركة', 
+        text='Overall_Score',
         color_discrete_map=COMPANY_COLORS
     )
-    fig_bar.update_layout(height=max(400, len(df)*30), font_family="Cairo", margin=dict(l=10, r=10))
+    fig_bar.update_traces(texttemplate='%{text}%', textposition='outside')
+    fig_bar.update_layout(
+        font_family="Cairo",
+        height=500,
+        xaxis={'title': 'رقم الموقع', 'type': 'category'},
+        yaxis={'title': 'نسبة الجاهزية %', 'range': [0, 120]},
+        margin=dict(l=0, r=0, t=30, b=0),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+    )
     st.plotly_chart(fig_bar, use_container_width=True)
 
 except Exception as e:
     st.error(f"خطأ: {e}")
 
-# زر التحديث في الأسفل لسهولة الوصول بالإبهام
 if st.button("🔄 تحديث البيانات"):
     st.cache_data.clear()
     st.rerun()
