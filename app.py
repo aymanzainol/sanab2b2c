@@ -78,7 +78,7 @@ SANA_NAME = 'سنا (مشارق الذهبية)'
 RAKEEN_NAME = 'ركين (مشارق المتميزة)'
 COMPANY_COLORS = {SANA_NAME: '#e74c3c', RAKEEN_NAME: '#795548'}
 
-# --- الواجهة ---
+# --- الواجهة الرئيسية ---
 try:
     df, checklist_cols = load_data()
 
@@ -93,7 +93,6 @@ try:
             gauge = {'axis': {'range': [0, 100]}, 'bar': {'color': "#10ac84"}},
             title = {'text': "الإنجاز الكلي", 'font': {'family': 'Cairo'}}
         ))
-        
         fig_gauge.update_layout(height=250, margin=dict(l=20, r=20, t=40, b=20), dragmode=False)
         st.plotly_chart(fig_gauge, use_container_width=True, config={'displayModeBar': False})
 
@@ -131,7 +130,7 @@ try:
             hide_index=True, use_container_width=True
         )
 
-    # --- قسم المخطط البياني المقفل مع حل مشكلة التداخل بشكل نهائي ---
+    # --- المخطط البياني المحسن والمقفل ---
     st.divider()
     st.subheader("📊 مقارنة الجاهزية لكل موقع")
     
@@ -155,12 +154,12 @@ try:
     
     fig_bar.update_traces(texttemplate='%{text}%', textposition='outside')
     
-    # 🟢 إعدادات محور X لتجنب التداخل تماماً
+    # تحسينات المحاور لمنع التداخل وقفل الزووم
     fig_bar.update_xaxes(
         fixedrange=True, 
-        tickangle=-45,         # إمالة النص
-        automargin=True,       # السماح للمخطط بتوسيع نفسه تلقائياً ليناسب طول الكلمات
-        title_standoff=40      # دفع عنوان المحور للأسفل بعيداً عن الكلمات المائلة
+        tickangle=-45, 
+        automargin=True,
+        title={'text': 'رقم الموقع', 'standoff': 60} # 🟢 دفع العنوان للأسفل بعيداً عن الكلمات المائلة
     )
     
     fig_bar.update_yaxes(
@@ -171,10 +170,9 @@ try:
     
     fig_bar.update_layout(
         font_family="Cairo",
-        height=600,            # 🟢 زيادة الارتفاع الكلي للمخطط لإعطاء مساحة أكبر
+        height=600, # زيادة الطول الكلي لاستيعاب النصوص بالأسفل
         dragmode=False,
-        xaxis_title="رقم الموقع",
-        margin=dict(l=0, r=0, t=30, b=150), # 🟢 زيادة الهامش السفلي بشكل كبير جداً (b=150)
+        margin=dict(l=20, r=20, t=30, b=180), # 🟢 هامش سفلي كبير جداً لمنع التداخل
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
     
