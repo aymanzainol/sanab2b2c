@@ -19,10 +19,8 @@ st.markdown("""
         text-align: right !important;
     }
 
-    /* تنسيق أزرار المخيمات */
     .stButton>button { border-radius: 8px; width: 100%; height: 50px; font-weight: bold; border: 1px solid #e0e0e0; }
     
-    /* بطاقات الإحصائيات داخل النافذة المنبثقة */
     .stat-box-popup {
         background: #f8fafc;
         padding: 15px;
@@ -34,7 +32,16 @@ st.markdown("""
     .val-green { color: #10b981; font-size: 24px; font-weight: bold; }
     .val-red { color: #ef4444; font-size: 24px; font-weight: bold; }
     
-    /* تنسيق النواقص */
+    /* تنسيق ملاحظات المراقب */
+    .observer-notes {
+        background-color: #eff6ff;
+        padding: 15px;
+        border-radius: 10px;
+        border-right: 5px solid #3b82f6;
+        margin-bottom: 20px;
+        font-size: 14px;
+    }
+
     .checklist-item-popup { 
         background-color: #fff5f5; 
         padding: 12px; 
@@ -79,7 +86,7 @@ def load_data():
     df['Unified_ID'] = df['Unified_ID'].fillna("موقع غير معروف").astype(str)
     return df.drop_duplicates(subset=['Unified_ID'], keep='last'), checklist_cols
 
-# 4. وظيفة النافذة المنبثقة (Pop-up Dialog)
+# 4. وظيفة النافذة المنبثقة المحدثة
 @st.dialog("تفاصيل بنود العمل 🏕️")
 def show_tent_details(row):
     score = int(row['Overall_Score'])
@@ -87,6 +94,17 @@ def show_tent_details(row):
     
     st.write(f"### موقع: {row['Unified_ID']}")
     st.caption(f"الشركة: {row['شركة']}")
+    
+    # --- إضافة ملاحظات المراقب هنا ---
+    if 'ملاحظات المراقب' in row and pd.notna(row['ملاحظات المراقب']):
+        st.markdown(f"""
+        <div class="observer-notes">
+            <b style="color: #1e40af;">📝 ملاحظات المراقب:</b><br>
+            {row['ملاحظات المراقب']}
+        </div>
+        """, unsafe_allow_html=True)
+    # -------------------------------
+
     st.progress(score / 100.0)
     
     c1, c2 = st.columns(2)
@@ -107,7 +125,6 @@ def show_tent_details(row):
 try:
     df, checklist_cols = load_data()
 
-    # نظام التنقل في القائمة الجانبية
     with st.sidebar:
         st.header("⚙️ التحكم")
         page = st.radio("انتقل إلى:", ["📊 لوحة التحكم", "🤖 المساعد الذكي"])
@@ -131,20 +148,18 @@ try:
             st.subheader("انقر على أي مخيم لمشاهدة التفاصيل في نافذة منبثقة")
             st.markdown("🟡 سنا (الذهبية) | 🔵 ركين (المتميزة)")
             
-            # عرض المخيمات كأزرار
             grid_cols = st.columns(5)
             for idx, row in df.iterrows():
                 company_icon = "🟡" if "سنا" in str(row['شركة']) else "🔵"
                 with grid_cols[idx % 5]:
                     if st.button(f"{company_icon} {row['Unified_ID']}", key=f"tent_{idx}"):
-                        show_tent_details(row) # استدعاء النافذة المنبثقة
+                        show_tent_details(row)
 
     elif page == "🤖 المساعد الذكي":
         st.title("🤖 المساعد الذكي")
         st.chat_message("assistant").write("أهلاً بك! يمكنك سؤالي عن أي موقع مباشرة.")
         if prompt := st.chat_input("اكتب رقم الموقع..."):
             st.chat_message("user").write(prompt)
-            # هنا يمكنك إضافة منطق البحث البسيط كما في النسخ السابقة
 
 except Exception as e:
     st.error(f"حدث خطأ: {e}")
