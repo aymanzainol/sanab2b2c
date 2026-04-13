@@ -5,13 +5,14 @@ import plotly.graph_objects as go
 import plotly.express as px
 
 # 1. إعدادات الصفحة
-st.set_page_config(page_title="لوحة قطاع المشاعر b2b2c 🚀", layout="wide")
+st.set_page_config(page_title="لوحة قطاع المشاعر 2026 🚀", layout="wide")
 
-# 2. التنسيق الجمالي (CSS)
+# 2. التنسيق الجمالي (CSS) - تخصيص الخطوط والألوان والاتجاهات
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
     
+    /* ضبط الاتجاه للعربية */
     .main .block-container { direction: rtl; text-align: right; }
     html, body, [data-testid="stSidebar"], .stMarkdown, .stText, p, h1, h2, h3, h4, h5, h6, button {
         font-family: 'Cairo', sans-serif !important;
@@ -19,43 +20,61 @@ st.markdown("""
         text-align: right !important;
     }
 
-    .stButton>button { border-radius: 8px; width: 100%; height: 50px; font-weight: bold; border: 1px solid #e0e0e0; }
+    /* تنسيق أزرار المواقع */
+    .stButton>button { 
+        border-radius: 12px; 
+        width: 100%; 
+        height: 65px; 
+        font-weight: bold; 
+        border: 1px solid #d1d5db;
+        transition: all 0.3s;
+    }
+    .stButton>button:hover {
+        border-color: #3b82f6;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
     
+    /* صندوق ملاحظات المراقب */
     .observer-notes-box {
-        background-color: #fdf2f2;
-        padding: 15px;
-        border-radius: 10px;
-        border-right: 5px solid #dc2626;
+        background-color: #fefce8;
+        padding: 18px;
+        border-radius: 12px;
+        border-right: 6px solid #eab308;
         margin-bottom: 20px;
+        box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05);
     }
     
     .date-badge {
-        background-color: #fee2e2;
-        color: #991b1b;
-        padding: 2px 8px;
-        border-radius: 5px;
-        font-size: 12px;
+        background-color: #fef3c7;
+        color: #92400e;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 13px;
         font-weight: bold;
+        border: 1px solid #fde68a;
     }
 
+    /* تنسيق قائمة الأنشطة المتبقية */
     .checklist-item-popup { 
-        background-color: #fff5f5; 
-        padding: 10px; 
+        background-color: #fef2f2; 
+        padding: 12px; 
         border-radius: 8px; 
-        margin-bottom: 5px; 
+        margin-bottom: 6px; 
         border-right: 4px solid #ef4444; 
-        font-size: 13px;
+        font-size: 14px;
+        color: #991b1b;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# 3. دوال تحليل وجلب البيانات
+# 3. دوال تحليل البيانات
 def analyze_readiness(row, checklist_cols):
     scores = []
     missing_items = []
     for col in checklist_cols:
         val = str(row[col]).strip()
         current_score = None
+        # منطق تحويل النصوص إلى نسب
         if '%' in val:
             try: current_score = float(val.replace('%', ''))
             except: pass
@@ -75,107 +94,130 @@ SHEET_URL = "https://docs.google.com/spreadsheets/d/1pN31S92Xa4m-hilE-e56F9T6LuO
 def load_data():
     df = pd.read_csv(SHEET_URL)
     df.columns = [col.strip() for col in df.columns]
+    
+    # تحديد أعمدة الفحص (تعدل حسب هيكلة شيت قوقل)
     checklist_cols = df.columns[7:37]
+    
+    # حساب النتائج
     df[['Overall_Score', 'Missing_Details']] = df.apply(lambda row: analyze_readiness(row, checklist_cols), axis=1)
+    
+    # توحيد معرف الموقع بناءً على الشركة
     df['Unified_ID'] = np.where(df['شركة'].str.contains('ركين', na=False), df.iloc[:, 5], df.iloc[:, 6])
-    df['Unified_ID'] = df['Unified_ID'].fillna("موقع غير معروف").astype(str)
-    # نستخدم عمود التاريخ إذا وجد، وإلا نضع تاريخ اليوم كافتراضي
+    df['Unified_ID'] = df['Unified_ID'].fillna("غير معرف").astype(str)
+    
+    # التعامل مع التاريخ
     if 'التاريخ' not in df.columns:
         df['التاريخ'] = pd.Timestamp.now().strftime('%Y-%m-%d')
+        
     return df.drop_duplicates(subset=['Unified_ID'], keep='last'), checklist_cols
 
-# 4. وظيفة النافذة المنبثقة (المحدثة ببيانات الملاحظات والأنشطة)
-@st.dialog("تقرير حالة الموقع 🏕️")
+# 4. النافذة المنبثقة التفصيلية
+@st.dialog("تقرير حالة الموقع التفصيلي 🏕️")
 def show_tent_details(row):
     score = int(row['Overall_Score'])
     missing_list = [item.strip() for item in str(row['Missing_Details']).split('،') if item.strip()]
     
-    col1, col2 = st.columns([2, 1])
-    with col1:
-        st.write(f"### موقع: {row['Unified_ID']}")
-        st.caption(f"الشركة: {row['شركة']}")
-    with col2:
-        st.markdown(f"<div style='text-align:center;'>نسبة الإنجاز<br><h2 style='color:#10b981;'>{score}%</h2></div>", unsafe_allow_html=True)
+    # العنوان والنسبة
+    c1, c2 = st.columns([3, 1])
+    with c1:
+        st.write(f"## موقع: {row['Unified_ID']}")
+        st.write(f"**الشركة:** {row['شركة']}")
+    with c2:
+        st.markdown(f"<div style='text-align:center;'>جاهزية الموقع<br><h1 style='color:#059669; margin-top:0;'>{score}%</h1></div>", unsafe_allow_html=True)
 
     st.progress(score / 100.0)
 
-    # عرض أحدث الملاحظات بالتاريخ
-    st.markdown("---")
-    st.subheader("📝 أحدث ملاحظات المراقب")
-    notes = row['ملاحظات المراقب'] if pd.notna(row['ملاحظات المراقب']) else "لا توجد ملاحظات مسجلة حالياً."
+    # 1. ملاحظات المراقب (بالتاريخ)
+    st.markdown("### 📝 أحدث ملاحظات المراقب")
+    notes = row['ملاحظات المراقب'] if pd.notna(row['ملاحظات المراقب']) and str(row['ملاحظات المراقب']).strip() != "" else "لا توجد ملاحظات مسجلة لهذا الموقع."
     date_val = row['التاريخ']
     st.markdown(f"""
     <div class="observer-notes-box">
-        <span class="date-badge">تاريخ التحديث: {date_val}</span><br><br>
+        <span class="date-badge">تاريخ التقرير: {date_val}</span><br><br>
         {notes}
     </div>
     """, unsafe_allow_html=True)
 
-    # الأنشطة المتبقية
-    st.subheader(f"⚠️ متبقي أنشطة ({len(missing_list)})")
+    # 2. الأنشطة المتبقية (النواقص)
+    st.markdown(f"### ⚠️ متبقي الأنشطة ({len(missing_list)})")
     if not missing_list:
-        st.success("✅ جميع الأنشطة مكتملة!")
+        st.success("🎉 ممتاز! تم اكتمال كافة الأنشطة في هذا الموقع.")
     else:
         for item in missing_list:
-            st.markdown(f"<div class='checklist-item-popup'>• {item}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='checklist-item-popup'>❌ {item}</div>", unsafe_allow_html=True)
+    
+    st.divider()
+    st.caption("يتم تحديث هذه البيانات بناءً على آخر تقرير مرفوع من المراقب الميداني.")
 
-# 5. بناء واجهة المستخدم
+# 5. واجهة التطبيق الرئيسية
 try:
     df, checklist_cols = load_data()
 
+    # القائمة الجانبية
     with st.sidebar:
-        st.header("⚙️ التحكم")
-        page = st.radio("انتقل إلى:", ["📊 الإحصائيات والتحليل", "🏕️ خريطة المواقع"])
-        if st.button("🔄 تحديث البيانات"):
+        st.header("📊 نظام المتابعة")
+        page = st.radio("القائمة الرئيسية:", ["📊 الإحصائيات والتحليل", "🏕️ خريطة المواقع"])
+        st.divider()
+        if st.button("🔄 تحديث البيانات الآن"):
             st.cache_data.clear()
             st.rerun()
 
+    # صفحة الإحصائيات
     if page == "📊 الإحصائيات والتحليل":
-        st.title("📊 التحليل البياني للقطاع")
+        st.title("📊 التحليل البياني لجاهزية القطاع")
         
+        # تصفية البيانات لكل شركة
         df_sana = df[df['شركة'].str.contains('سنا', na=False)]
         df_rakeen = df[df['شركة'].str.contains('ركين', na=False)]
 
-        # --- قسم شركة سنا (بني) ---
-        st.markdown("### 🟤 شركة سنا (الباقة الذهبية)")
-        s1, s2 = st.columns([1, 3])
-        with s1:
-            st.metric("متوسط الإنجاز", f"{int(df_sana['Overall_Score'].mean())}%")
-            st.metric("مواقع مكتملة", f"{len(df_sana[df_sana['Overall_Score'] == 100])} / {len(df_sana)}")
-        with s2:
+        # --- شركة سنا (بني) ---
+        st.markdown("---")
+        st.subheader("🟤 شركة سنا (الباقة الذهبية)")
+        col_s1, col_s2 = st.columns([1, 4])
+        with col_s1:
+            st.metric("متوسط الإنجاز", f"{round(df_sana['Overall_Score'].mean())}%")
+            st.metric("مواقع مكتملة", f"{len(df_sana[df_sana['Overall_Score'] == 100])}")
+        with col_s2:
             fig_sana = px.bar(df_sana, x='Unified_ID', y='Overall_Score', 
-                             title="مستوى الجاهزية - سنا", 
-                             color_discrete_sequence=['#8B4513']) # بني
+                             color_discrete_sequence=['#5D4037'], # لون بني داكن
+                             labels={'Overall_Score':'نسبة الإنجاز %', 'Unified_ID':'رقم الموقع'})
+            fig_sana.update_layout(height=350, margin=dict(t=10, b=10))
             st.plotly_chart(fig_sana, use_container_width=True)
 
-        st.divider()
-
-        # --- قسم شركة ركين (أحمر) ---
-        st.markdown("### 🔴 شركة ركين (الباقة المتميزة)")
-        r1, r2 = st.columns([1, 3])
-        with r1:
-            st.metric("متوسط الإنجاز", f"{int(df_rakeen['Overall_Score'].mean())}%")
-            st.metric("مواقع مكتملة", f"{len(df_rakeen[df_rakeen['Overall_Score'] == 100])} / {len(df_rakeen)}")
-        with r2:
+        # --- شركة ركين (أحمر) ---
+        st.markdown("---")
+        st.subheader("🔴 شركة ركين (الباقة المتميزة)")
+        col_r1, col_r2 = st.columns([1, 4])
+        with col_r1:
+            st.metric("متوسط الإنجاز", f"{round(df_rakeen['Overall_Score'].mean())}%")
+            st.metric("مواقع مكتملة", f"{len(df_rakeen[df_rakeen['Overall_Score'] == 100])}")
+        with col_r2:
             fig_rakeen = px.bar(df_rakeen, x='Unified_ID', y='Overall_Score', 
-                               title="مستوى الجاهزية - ركين", 
-                               color_discrete_sequence=['#CC0000']) # أحمر
+                               color_discrete_sequence=['#B91C1C'], # لون أحمر
+                               labels={'Overall_Score':'نسبة الإنجاز %', 'Unified_ID':'رقم الموقع'})
+            fig_rakeen.update_layout(height=350, margin=dict(t=10, b=10))
             st.plotly_chart(fig_rakeen, use_container_width=True)
 
+    # صفحة خريطة المواقع (الأزرار)
     elif page == "🏕️ خريطة المواقع":
-        st.title("🏕️ توزيع المواقع والجاهزية")
-        st.write("انقر على الموقع لعرض **الملاحظات اليومية** و **الأنشطة المتبقية**.")
+        st.title("🏕️ خريطة توزيع المواقع الميدانية")
+        st.info("قم بالنقر على رقم الموقع لمراجعة (ملاحظات المراقب اليومية) وقائمة (الأنشطة المتبقية).")
         
-        st.markdown("🟤 سنا | 🔴 ركين")
+        # فرز البيانات لعرضها بشكل منظم
+        df_sorted = df.sort_values(by=['شركة', 'Unified_ID'])
         
-        grid_cols = st.columns(5)
-        for idx, row in df.iterrows():
-            company_color = "🟤" if "سنا" in str(row['شركة']) else "🔴"
-            with grid_cols[idx % 5]:
-                # الزر يعرض المعرف والنسبة بشكل مختصر
-                btn_label = f"{company_color} {row['Unified_ID']}\n({row['Overall_Score']}%)"
-                if st.button(btn_label, key=f"btn_{idx}"):
+        # عرض الأزرار في شبكة (Grid)
+        grid_cols = st.columns(6) # 6 أعمدة في الصف الواحد
+        for idx, (_, row) in enumerate(df_sorted.iterrows()):
+            icon = "🟤" if "سنا" in str(row['شركة']) else "🔴"
+            color_hex = "#5D4037" if "سنا" in str(row['شركة']) else "#B91C1C"
+            
+            with grid_cols[idx % 6]:
+                # كتابة نص الزر: المعرف + النسبة
+                label = f"{icon} {row['Unified_ID']}\n{row['Overall_Score']}%"
+                if st.button(label, key=f"btn_{row['Unified_ID']}"):
                     show_tent_details(row)
 
 except Exception as e:
-    st.error(f"حدث خطأ في النظام: {e}")
+    st.error(f"⚠️ خطأ في تحميل البيانات: {e}")
+    st.info("تأكد من أن رابط Google Sheets متاح للجميع (Anyone with the link can view).")
