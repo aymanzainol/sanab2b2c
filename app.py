@@ -4,41 +4,40 @@ import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
 
-# 1. إعدادات الصفحة والتنسيق المتجاوب
-st.set_page_config(page_title="Mina Readiness Dashboard", layout="wide", initial_sidebar_state="collapsed")
+# 1. إعدادات الصفحة
+st.set_page_config(page_title="لوحة قطاع المشاعر b2b2c 🚀", layout="wide")
 
+# 2. التنسيق الجمالي (CSS) لدعم الـ RTL والتصميم الاحترافي
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
-    html, body, [class*="css"], .stText, .stMarkdown {
-        font-family: 'Cairo', sans-serif;
-        direction: RTL;
-        text-align: right;
+    
+    .main .block-container { direction: rtl; text-align: right; }
+    html, body, [data-testid="stSidebar"], .stMarkdown, .stText, p, h1, h2, h3, h4, h5, h6, button {
+        font-family: 'Cairo', sans-serif !important;
+        direction: rtl !important;
+        text-align: right !important;
     }
-    .ai-card {
-        background: #ffffff;
-        border-right: 6px solid #10ac84;
-        padding: 20px;
-        border-radius: 12px;
-        margin-bottom: 20px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-    }
-    .stButton>button {
-        width: 100%;
-        height: 50px;
-        border-radius: 12px;
-        font-size: 18px !important;
-        background-color: #10ac84;
-        color: white;
-    }
-    div[data-testid="stRadio"] > div {
-        flex-direction: row !important;
-        gap: 20px;
-    }
+
+    /* تنسيق فقاعات الدردشة */
+    .bot-msg { background: #f0f2f6; border-radius: 15px; padding: 15px; margin: 10px 0; border-right: 5px solid #10ac84; text-align: right; }
+    .user-msg { background: #e3f2fd; border-radius: 15px; padding: 15px; margin: 10px 0; border-right: 5px solid #1976d2; text-align: right; }
+    
+    /* تنسيق بطاقات الحالة والنواقص */
+    .status-card { padding: 20px; border-radius: 15px; margin-bottom: 15px; text-align: center; border-right: 10px solid; }
+    .ok-bg { background-color: #d4edda; border-right-color: #28a745; color: #155724; }
+    .warning-bg { background-color: #fff3cd; border-right-color: #ffc107; color: #856404; }
+    
+    .missing-card { background: #fff5f5; border: 1px solid #fc8181; border-radius: 10px; padding: 20px; border-right: 8px solid #e53e3e; margin-top: 15px;}
+    .perfect-card { background: #f0fff4; border: 1px solid #68d391; border-radius: 10px; padding: 20px; border-right: 8px solid #38a169; margin-top: 15px;}
+    
+    /* تنسيق أزرار المخيمات */
+    .stButton>button { border-radius: 8px; width: 100%; transition: 0.3s; font-weight: bold; }
+    .stButton>button:hover { transform: scale(1.02); border-color: #10ac84; }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. منطق التحليل الذكي
+# 3. دوال تحليل البيانات
 def analyze_readiness(row, checklist_cols):
     scores = []
     missing_items = []
@@ -48,20 +47,16 @@ def analyze_readiness(row, checklist_cols):
         if '%' in val:
             try: current_score = float(val.replace('%', ''))
             except: pass
-        elif any(p in val for p in ['نعم', 'مطابق', 'مكتمل', 'تم']):
-            current_score = 100.0
-        elif any(n in val for n in ['لا', 'غير مطابق', 'لم يتم']):
-            current_score = 0.0
-
+        elif any(p in val for p in ['نعم', 'مطابق', 'مكتمل', 'تم']): current_score = 100.0
+        elif any(n in val for n in ['لا', 'غير مطابق', 'لم يتم']): current_score = 0.0
+        
         if current_score is not None:
             scores.append(current_score)
-            if current_score < 100:
-                missing_items.append(col)
-                
+            if current_score < 100: missing_items.append(col)
+            
     avg_score = np.mean(scores) if scores else 0
-    return pd.Series([round(avg_score), ", ".join(missing_items)])
+    return pd.Series([round(avg_score), "، ".join(missing_items)])
 
-# 3. تحميل البيانات
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1pN31S92Xa4m-hilE-e56F9T6LuOhZLwPq6YWEnWP_xk/export?format=csv"
 
 @st.cache_data(ttl=60)
@@ -71,111 +66,119 @@ def load_data():
     checklist_cols = df.columns[7:37]
     df[['Overall_Score', 'Missing_Details']] = df.apply(lambda row: analyze_readiness(row, checklist_cols), axis=1)
     df['Unified_ID'] = np.where(df['شركة'].str.contains('ركين', na=False), df.iloc[:, 5], df.iloc[:, 6])
-    df['Unified_ID'] = df['Unified_ID'].fillna("غير محدد").astype(str)
+    df['Unified_ID'] = df['Unified_ID'].fillna("موقع غير معروف").astype(str)
     return df.drop_duplicates(subset=['Unified_ID'], keep='last'), checklist_cols
 
-SANA_NAME = 'سنا (مشارق الذهبية)'
-RAKEEN_NAME = 'ركين (مشارق المتميزة)'
-COMPANY_COLORS = {SANA_NAME: '#e74c3c', RAKEEN_NAME: '#795548'}
+def chat_logic(query, df):
+    query = query.lower()
+    match = df[df['Unified_ID'].str.contains(query, na=False)]
+    if not match.empty:
+        row = match.iloc[0]
+        msg = f"📍 **بيانات الموقع: {row['Unified_ID']}**\n\n"
+        msg += f"• الفريق: {row['شركة']}\n"
+        msg += f"• نسبة الإنجاز: {row['Overall_Score']}%\n"
+        msg += f"• النواقص الحالية: {row['Missing_Details'] if row['Missing_Details'] else 'لا يوجد نواقص، العمل مكتمل! ✨'}"
+        return msg
+    return "عذراً، لم أجد هذا الموقع في الـ Masterdata. تأكد من إدخال الرقم الصحيح. 🧐"
 
-# --- الواجهة ---
+# 4. نظام التنقل
+with st.sidebar:
+    st.title("🧭 التنقل")
+    page = st.radio("اختر الصفحة:", ["📊 الإحصائيات والتقارير", "🤖 المساعد الذكي (الدردشة)"])
+    st.divider()
+    if st.button("🔄 تحديث البيانات الحية"):
+        st.cache_data.clear()
+        st.rerun()
+
+# تحميل البيانات
 try:
     df, checklist_cols = load_data()
 
-    st.title("🕋 لوحة جاهزية مخيمات منى")
-    
-    tab1, tab2, tab3 = st.tabs(["📊 الملخص", "🤖 التحليل الذكي", "📋 التقارير"])
-
-    with tab1:
+    # --- الصفحة الأولى: لوحة الإحصائيات ---
+    if page == "📊 الإحصائيات والتقارير":
+        st.title("🕋 لوحة قطاع المشاعر b2b2c")
         avg_total = int(df['Overall_Score'].mean())
-        fig_gauge = go.Figure(go.Indicator(
-            mode = "gauge+number", value = avg_total,
-            gauge = {'axis': {'range': [0, 100]}, 'bar': {'color': "#10ac84"}},
-            title = {'text': "الإنجاز الكلي", 'font': {'family': 'Cairo'}}
-        ))
         
-        # قفل مخطط العداد (Gauge)
-        fig_gauge.update_layout(height=250, margin=dict(l=20, r=20, t=40, b=20), dragmode=False)
-        st.plotly_chart(fig_gauge, use_container_width=True, config={'displayModeBar': False})
-
-    with tab2:
-        st.markdown('<div class="ai-card">', unsafe_allow_html=True)
-        st.subheader("💡 نواقص بنود العمل")
-        missing_summary = []
-        for col in checklist_cols:
-            bad_sites = df[df[col].astype(str).str.contains('لا|غير مطابق|لم يتم|0%', na=False)]['Unified_ID'].tolist()
-            if bad_sites:
-                missing_summary.append({"البند": col, "المواقع": " ، ".join(bad_sites)})
-        
-        if missing_summary:
-            for item in missing_summary:
-                with st.expander(f"❌ {item['البند']}"):
-                    st.write(f"المواقع الناقصة: **{item['المواقع']}**")
+        if avg_total >= 90:
+            st.markdown(f'<div class="status-card ok-bg"><h2>الوضع العام: ممتاز ✅</h2>المعدل التراكمي: {avg_total}%</div>', unsafe_allow_html=True)
         else:
-            st.success("جميع البنود مكتملة!")
-        st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="status-card warning-bg"><h2>الوضع العام: يحتاج متابعة ⚠️</h2>المعدل التراكمي: {avg_total}%</div>', unsafe_allow_html=True)
 
-        st.subheader("🔍 استعلام سريع")
-        selected_id = st.selectbox("اختر رقم الموقع:", df['Unified_ID'].unique())
-        site_row = df[df['Unified_ID'] == selected_id].iloc[0]
-        st.metric("الجاهزية", f"{site_row['Overall_Score']}%")
-        if site_row['Missing_Details']:
-            st.warning(f"النواقص: {site_row['Missing_Details']}")
+        # التبويبات الداخلية للإحصائيات
+        tab1, tab2 = st.tabs(["📈 المؤشرات البيانية", "🏕️ خريطة المخيمات والنواقص (جديد)"])
+        
+        with tab1:
+            col1, col2 = st.columns([2, 1])
+            with col1:
+                fig_bar = px.bar(df, x='Unified_ID', y='Overall_Score', color='Overall_Score', text='Overall_Score', 
+                                 color_continuous_scale='Greens', title="مستوى الجاهزية لكل موقع")
+                fig_bar.update_xaxes(autorange="reversed")
+                st.plotly_chart(fig_bar, use_container_width=True)
+            with col2:
+                st.subheader("🔍 تفاصيل سريعة")
+                st.dataframe(df[['Unified_ID', 'Overall_Score']].rename(columns={'Unified_ID': 'الموقع', 'Overall_Score': '%'}))
 
-    with tab3:
-        st.subheader("📋 تفاصيل المواقع")
-        st.data_editor(
-            df[['Unified_ID', 'Overall_Score', 'Missing_Details']].rename(
-                columns={'Unified_ID': 'الموقع', 'Overall_Score': 'إنجاز %', 'Missing_Details': 'النواقص'}
-            ),
-            column_config={"إنجاز %": st.column_config.ProgressColumn(min_value=0, max_value=100, format="%d%%")},
-            hide_index=True, use_container_width=True
-        )
+        # --- الميزة الجديدة: خريطة المخيمات التفاعلية ---
+        with tab2:
+            st.subheader("إضغط على أي مخيم لمعرفة النواقص الخاصة به 🔍")
+            st.markdown("**دليل الألوان:** 🟡 سنا (الذهبية) | 🔵 ركين (المتميزة)")
+            
+            # تهيئة متغير الجلسة لحفظ المخيم المختار
+            if 'selected_tent' not in st.session_state:
+                st.session_state.selected_tent = None
 
-    # --- قسم المخطط البياني الرأسي المقفل للجوال ---
-    st.divider()
-    st.subheader("📊 مقارنة الجاهزية لكل موقع")
-    
-    filter_option = st.radio("عرض المواقع حسب الشركة:", ["الكل", "سنا", "ركين"], horizontal=True)
+            # إنشاء شبكة (Grid) لعرض الأزرار
+            cols = st.columns(4) # عرض 4 مخيمات في كل سطر
+            for idx, row in df.iterrows():
+                tent_id = row['Unified_ID']
+                company = str(row['شركة'])
+                
+                # تحديد لون (رمز) الشركة
+                color_code = "🟡" if "سنا" in company else "🔵"
+                
+                col_idx = idx % 4
+                with cols[col_idx]:
+                    if st.button(f"{color_code} {tent_id}", key=f"btn_{idx}"):
+                        st.session_state.selected_tent = row
+            
+            # عرض التفاصيل والنواقص للمخيم المختار أسفل الشبكة
+            if st.session_state.selected_tent is not None:
+                selected = st.session_state.selected_tent
+                st.markdown("---")
+                st.write(f"### 🏕️ تفاصيل موقع: {selected['Unified_ID']}")
+                st.write(f"**الشركة المنفذة:** {selected['شركة']} | **نسبة الإنجاز:** {selected['Overall_Score']}%")
+                
+                missing = selected['Missing_Details']
+                if not missing or missing.strip() == "":
+                    st.markdown('<div class="perfect-card"><h4>✅ جميع البنود مكتملة ومطابقة 100%! لا يوجد أي نواقص.</h4></div>', unsafe_allow_html=True)
+                else:
+                    st.markdown('<div class="missing-card"><h4>⚠️ بنود العمل غير المكتملة (النواقص):</h4><ul>', unsafe_allow_html=True)
+                    # تحويل النص المدمج إلى قائمة نقطية أنيقة
+                    missing_list = missing.split('،')
+                    for item in missing_list:
+                        if item.strip():
+                            st.markdown(f"<li>{item.strip()}</li>", unsafe_allow_html=True)
+                    st.markdown('</ul></div>', unsafe_allow_html=True)
 
-    if filter_option == "سنا":
-        chart_df = df[df['شركة'] == SANA_NAME]
-    elif filter_option == "ركين":
-        chart_df = df[df['شركة'] == RAKEEN_NAME]
-    else:
-        chart_df = df
 
-    fig_bar = px.bar(
-        chart_df.sort_values('Overall_Score', ascending=False), 
-        x='Unified_ID', 
-        y='Overall_Score', 
-        color='شركة', 
-        text='Overall_Score',
-        color_discrete_map=COMPANY_COLORS
-    )
-    
-    fig_bar.update_traces(texttemplate='%{text}%', textposition='outside')
-    
-    # قفل المخطط بالكامل لمنع التكبير والسحب المزعج على الجوال
-    fig_bar.update_xaxes(fixedrange=True) # منع التكبير على محور X
-    fig_bar.update_yaxes(fixedrange=True) # منع التكبير على محور Y
-    
-    fig_bar.update_layout(
-        font_family="Cairo",
-        height=500,
-        dragmode=False, # تعطيل السحب
-        xaxis={'title': 'رقم الموقع', 'type': 'category'},
-        yaxis={'title': 'نسبة الجاهزية %', 'range': [0, 120]},
-        margin=dict(l=0, r=0, t=30, b=0),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-    )
-    
-    # إخفاء شريط أدوات Plotly (المكبرات والكاميرا) ليكون المظهر نظيفاً
-    st.plotly_chart(fig_bar, use_container_width=True, config={'displayModeBar': False})
+    # --- الصفحة الثانية: المساعد الذكي (Chatbot) ---
+    elif page == "🤖 المساعد الذكي (الدردشة)":
+        st.title("🤖 المساعد الذكي للبيانات")
+        st.info("اكتب رقم الموقع في الأسفل وسأقوم بسحب البيانات لك فوراً من الـ Masterdata.")
+        
+        if "messages" not in st.session_state:
+            st.session_state.messages = [{"role": "bot", "content": "أهلاً بك! أنا مساعدك الذكي لقطاع المشاعر. كيف يمكنني مساعدتك اليوم؟"}]
+
+        for m in st.session_state.messages:
+            cls = "bot-msg" if m["role"] == "bot" else "user-msg"
+            icon = "🤖" if m["role"] == "bot" else "👤"
+            st.markdown(f'<div class="{cls}">{icon} {m["content"]}</div>', unsafe_allow_html=True)
+
+        if prompt := st.chat_input("أدخل رقم الموقع (مثال: الهند 20)"):
+            st.session_state.messages.append({"role": "user", "content": prompt})
+            response = chat_logic(prompt, df)
+            st.session_state.messages.append({"role": "bot", "content": response})
+            st.rerun()
 
 except Exception as e:
-    st.error(f"خطأ: {e}")
-
-if st.button("🔄 تحديث البيانات"):
-    st.cache_data.clear()
-    st.rerun()
+    st.error(f"⚠️ حدث خطأ أثناء الاتصال بالبيانات: {e}")
