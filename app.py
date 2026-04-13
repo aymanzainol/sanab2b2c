@@ -7,7 +7,7 @@ import plotly.express as px
 # 1. إعدادات الصفحة
 st.set_page_config(page_title="لوحة قطاع المشاعر b2b2c 🚀", layout="wide")
 
-# 2. التنسيق الجمالي (CSS) - تركيز على وضوح النواقص
+# 2. التنسيق الجمالي (CSS)
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
@@ -19,56 +19,35 @@ st.markdown("""
         text-align: right !important;
     }
 
-    /* أزرار المخيمات */
-    .stButton>button { 
-        border-radius: 12px; 
-        width: 100%; 
-        height: 55px; 
-        font-weight: bold; 
-        border: 2px solid #f0f2f6;
-        background-color: #ffffff;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    }
-    .stButton>button:hover { border-color: #10ac84; background-color: #f9fafb; }
-
-    /* حاوية النواقص داخل الـ Pop-up */
-    .missing-header {
-        background-color: #fee2e2;
-        color: #991b1b;
-        padding: 10px;
-        border-radius: 8px;
-        text-align: center;
-        font-weight: bold;
-        margin-bottom: 15px;
-        border: 1px solid #fecaca;
-    }
+    /* تنسيق أزرار المخيمات */
+    .stButton>button { border-radius: 8px; width: 100%; height: 50px; font-weight: bold; border: 1px solid #e0e0e0; }
     
-    .incomplete-item {
-        background-color: #ffffff;
-        padding: 12px 15px;
+    /* بطاقات الإحصائيات داخل النافذة المنبثقة */
+    .stat-box-popup {
+        background: #f8fafc;
+        padding: 15px;
         border-radius: 10px;
-        margin-bottom: 8px;
-        border-right: 6px solid #ef4444;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.03);
-        font-size: 15px;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        color: #374151;
+        text-align: center;
+        border: 1px solid #e2e8f0;
+        margin-bottom: 10px;
     }
-
-    .stat-badge {
-        background: #f3f4f6;
-        padding: 8px 15px;
-        border-radius: 20px;
-        font-weight: bold;
-        display: inline-block;
-        margin: 5px;
+    .val-green { color: #10b981; font-size: 24px; font-weight: bold; }
+    .val-red { color: #ef4444; font-size: 24px; font-weight: bold; }
+    
+    /* تنسيق النواقص */
+    .checklist-item-popup { 
+        background-color: #fff5f5; 
+        padding: 12px; 
+        border-radius: 8px; 
+        margin-bottom: 8px; 
+        border-right: 4px solid #ef4444; 
+        font-size: 14px;
+        color: #991b1b;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# 3. جلب وتحليل البيانات
+# 3. دوال تحليل وجلب البيانات
 def analyze_readiness(row, checklist_cols):
     scores = []
     missing_items = []
@@ -83,10 +62,10 @@ def analyze_readiness(row, checklist_cols):
         
         if current_score is not None:
             scores.append(current_score)
-            if current_score < 100: missing_items.append(col) # تخزين اسم العمود كبند ناقص
+            if current_score < 100: missing_items.append(col)
             
     avg_score = np.mean(scores) if scores else 0
-    return pd.Series([round(avg_score), " | ".join(missing_items)])
+    return pd.Series([round(avg_score), "، ".join(missing_items)])
 
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1pN31S92Xa4m-hilE-e56F9T6LuOhZLwPq6YWEnWP_xk/export?format=csv"
 
@@ -100,75 +79,72 @@ def load_data():
     df['Unified_ID'] = df['Unified_ID'].fillna("موقع غير معروف").astype(str)
     return df.drop_duplicates(subset=['Unified_ID'], keep='last'), checklist_cols
 
-# 4. النافذة المنبثقة (Pop-up Dialog)
-@st.dialog("📋 مراجعة بنود العمل")
-def show_missing_items(row):
+# 4. وظيفة النافذة المنبثقة (Pop-up Dialog)
+@st.dialog("تفاصيل بنود العمل 🏕️")
+def show_tent_details(row):
     score = int(row['Overall_Score'])
-    # تحويل النص إلى قائمة
-    raw_missing = str(row['Missing_Details']).split('|')
-    missing_list = [item.strip() for item in raw_missing if item.strip()]
+    missing_list = [item.strip() for item in str(row['Missing_Details']).split('،') if item.strip()]
     
-    st.markdown(f"### 📍 موقع: {row['Unified_ID']}")
-    st.markdown(f"<span class='stat-badge'>🏢 الشركة: {row['شركة']}</span> <span class='stat-badge'>📊 الجاهزية: {score}%</span>", unsafe_allow_html=True)
-    
+    st.write(f"### موقع: {row['Unified_ID']}")
+    st.caption(f"الشركة: {row['شركة']}")
     st.progress(score / 100.0)
+    
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown(f"<div class='stat-box-popup'>نسبة الإنجاز<br><span class='val-green'>{score}%</span></div>", unsafe_allow_html=True)
+    with c2:
+        st.markdown(f"<div class='stat-box-popup'>النواقص<br><span class='val-red'>{len(missing_list)}</span></div>", unsafe_allow_html=True)
+    
     st.divider()
-
     if not missing_list:
-        st.balloons()
-        st.success("✨ مبروك! هذا الموقع مكتمل تماماً ولا توجد به أي نواقص.")
+        st.success("🌟 العمل مكتمل بنسبة 100%!")
     else:
-        st.markdown("<div class='missing-header'>⚠️ البنود غير المكتملة (تحتاج تدخل)</div>", unsafe_allow_html=True)
-        
-        # عرض كل بند ناقص في بطاقة مستقلة سهلة القراءة
+        st.write("**البنود غير المكتملة:**")
         for item in missing_list:
-            st.markdown(f"""
-                <div class='incomplete-item'>
-                    <span style='color: #ef4444; font-size: 20px;'>❌</span>
-                    <span>{item}</span>
-                </div>
-            """, unsafe_allow_html=True)
-            
-    st.write("")
-    if st.button("إغلاق النافذة"):
-        st.rerun()
+            st.markdown(f"<div class='checklist-item-popup'>❌ {item}</div>", unsafe_allow_html=True)
 
-# 5. بناء الصفحة الرئيسية
+# 5. بناء واجهة المستخدم
 try:
     df, checklist_cols = load_data()
 
+    # نظام التنقل في القائمة الجانبية
     with st.sidebar:
-        st.title("⚙️ لوحة التحكم")
-        page = st.radio("القائمة:", ["📊 الإحصائيات", "🏕️ خريطة النواقص"])
-        if st.button("🔄 تحديث البيانات الآن"):
+        st.header("⚙️ التحكم")
+        page = st.radio("انتقل إلى:", ["📊 لوحة التحكم", "🤖 المساعد الذكي"])
+        if st.button("🔄 تحديث البيانات"):
             st.cache_data.clear()
             st.rerun()
 
-    if page == "📊 الإحصائيات":
-        st.title("🕋 قطاع المشاعر - نظرة عامة")
-        avg_total = int(df['Overall_Score'].mean())
-        st.metric("المعدل العام للإنجاز", f"{avg_total}%", delta=f"{avg_total-70}% من المستهدف")
+    if page == "📊 لوحة التحكم":
+        st.title("🕋 قطاع المشاعر b2b2c")
         
-        fig = px.bar(df, x='Unified_ID', y='Overall_Score', color='Overall_Score', 
-                     text='Overall_Score', color_continuous_scale='Greens')
-        fig.update_xaxes(autorange="reversed")
-        st.plotly_chart(fig, use_container_width=True)
-
-    elif page == "🏕️ خريطة النواقص":
-        st.title("🏕️ نظام تتبع المخيمات")
-        st.write("اضغط على اسم المخيم لفتح قائمة **النواقص** فوراً.")
+        tab1, tab2 = st.tabs(["📊 الإحصائيات", "🏕️ خريطة المخيمات (Pop-up)"])
         
-        st.markdown("🟡 سنا (الذهبية) | 🔵 ركين (المتميزة)")
-        st.divider()
+        with tab1:
+            avg_total = int(df['Overall_Score'].mean())
+            st.metric("متوسط الجاهزية العام", f"{avg_total}%")
+            fig = px.bar(df, x='Unified_ID', y='Overall_Score', color='Overall_Score', color_continuous_scale='RdYlGn')
+            fig.update_xaxes(autorange="reversed")
+            st.plotly_chart(fig, use_container_width=True)
 
-        # عرض المخيمات كأزرار في شبكة (Grid)
-        grid_cols = st.columns(4)
-        for idx, row in df.iterrows():
-            icon = "🟡" if "سنا" in str(row['شركة']) else "🔵"
-            with grid_cols[idx % 4]:
-                # عند الضغط على الزر، يفتح الـ Dialog
-                if st.button(f"{icon} {row['Unified_ID']}", key=f"tent_{idx}"):
-                    show_missing_items(row)
+        with tab2:
+            st.subheader("انقر على أي مخيم لمشاهدة التفاصيل في نافذة منبثقة")
+            st.markdown("🟡 سنا (الذهبية) | 🔵 ركين (المتميزة)")
+            
+            # عرض المخيمات كأزرار
+            grid_cols = st.columns(5)
+            for idx, row in df.iterrows():
+                company_icon = "🟡" if "سنا" in str(row['شركة']) else "🔵"
+                with grid_cols[idx % 5]:
+                    if st.button(f"{company_icon} {row['Unified_ID']}", key=f"tent_{idx}"):
+                        show_tent_details(row) # استدعاء النافذة المنبثقة
+
+    elif page == "🤖 المساعد الذكي":
+        st.title("🤖 المساعد الذكي")
+        st.chat_message("assistant").write("أهلاً بك! يمكنك سؤالي عن أي موقع مباشرة.")
+        if prompt := st.chat_input("اكتب رقم الموقع..."):
+            st.chat_message("user").write(prompt)
+            # هنا يمكنك إضافة منطق البحث البسيط كما في النسخ السابقة
 
 except Exception as e:
-    st.error(f"حدث خطأ في عرض البيانات: {e}")
+    st.error(f"حدث خطأ: {e}")
