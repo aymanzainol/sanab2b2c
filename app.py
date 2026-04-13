@@ -168,18 +168,20 @@ try:
         df_rakeen = df[df['شركة'].str.contains('ركين', na=False)]
 
         # عرض سنا
-        st.subheader("🟤 شركة سنا")
+        st.subheader("🔴 شركة سنا")
         c1, c2 = st.columns([1, 4])
         c1.metric("متوسط الإنجاز", f"{round(df_sana['Overall_Score'].mean())}%")
-        fig_sana = px.bar(df_sana, x='Unified_ID', y='Overall_Score', color_discrete_sequence=['#8b5e3c'])
+        fig_sana = px.bar(df_sana, x='Unified_ID', y='Overall_Score', color_discrete_sequence=['#b91c1c'], text='Overall_Score')
+        fig_sana.update_traces(texttemplate='%{text}%', textposition='outside')
         fig_sana.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white")
         c2.plotly_chart(fig_sana, use_container_width=True)
 
         # عرض ركين
-        st.subheader("🔴 شركة ركين")
+        st.subheader("🟤 شركة ركين")
         r1, r2 = st.columns([1, 4])
         r1.metric("متوسط الإنجاز", f"{round(df_rakeen['Overall_Score'].mean())}%")
-        fig_rakeen = px.bar(df_rakeen, x='Unified_ID', y='Overall_Score', color_discrete_sequence=['#b91c1c'])
+        fig_rakeen = px.bar(df_rakeen, x='Unified_ID', y='Overall_Score', color_discrete_sequence=['#8b5e3c'], text='Overall_Score')
+        fig_rakeen.update_traces(texttemplate='%{text}%', textposition='outside')
         fig_rakeen.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white")
         r2.plotly_chart(fig_rakeen, use_container_width=True)
 
@@ -190,7 +192,7 @@ try:
         
         grid_cols = st.columns(6)
         for idx, (_, row) in enumerate(df_sorted.iterrows()):
-            icon = "🟤" if "سنا" in str(row['شركة']) else "🔴"
+            icon = "🔴" if "سنا" in str(row['شركة']) else "🟤"
             with grid_cols[idx % 6]:
                 label = f"{icon} {row['Unified_ID']}\n{row['Overall_Score']}%"
                 if st.button(label, key=f"btn_{row['Unified_ID']}"):
