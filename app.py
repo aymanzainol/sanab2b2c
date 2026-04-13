@@ -19,20 +19,18 @@ st.markdown("""
         text-align: right !important;
     }
 
+    /* بطاقات الإحصائيات الملونة */
+    .metric-card {
+        background: white;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        border: 1px solid #f0f0f0;
+        text-align: center;
+    }
+    
     .stButton>button { border-radius: 8px; width: 100%; height: 50px; font-weight: bold; border: 1px solid #e0e0e0; }
     
-    .stat-box-popup {
-        background: #f8fafc;
-        padding: 15px;
-        border-radius: 10px;
-        text-align: center;
-        border: 1px solid #e2e8f0;
-        margin-bottom: 10px;
-    }
-    .val-green { color: #10b981; font-size: 24px; font-weight: bold; }
-    .val-red { color: #ef4444; font-size: 24px; font-weight: bold; }
-    
-    /* تنسيق ملاحظات المراقب */
     .observer-notes {
         background-color: #eff6ff;
         padding: 15px;
@@ -40,16 +38,6 @@ st.markdown("""
         border-right: 5px solid #3b82f6;
         margin-bottom: 20px;
         font-size: 14px;
-    }
-
-    .checklist-item-popup { 
-        background-color: #fff5f5; 
-        padding: 12px; 
-        border-radius: 8px; 
-        margin-bottom: 8px; 
-        border-right: 4px solid #ef4444; 
-        font-size: 14px;
-        color: #991b1b;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -86,40 +74,20 @@ def load_data():
     df['Unified_ID'] = df['Unified_ID'].fillna("موقع غير معروف").astype(str)
     return df.drop_duplicates(subset=['Unified_ID'], keep='last'), checklist_cols
 
-# 4. وظيفة النافذة المنبثقة المحدثة
+# 4. وظيفة النافذة المنبثقة
 @st.dialog("تفاصيل بنود العمل 🏕️")
 def show_tent_details(row):
     score = int(row['Overall_Score'])
     missing_list = [item.strip() for item in str(row['Missing_Details']).split('،') if item.strip()]
-    
     st.write(f"### موقع: {row['Unified_ID']}")
-    st.caption(f"الشركة: {row['شركة']}")
-    
-    # --- إضافة ملاحظات المراقب هنا ---
     if 'ملاحظات المراقب' in row and pd.notna(row['ملاحظات المراقب']):
-        st.markdown(f"""
-        <div class="observer-notes">
-            <b style="color: #1e40af;">📝 ملاحظات المراقب:</b><br>
-            {row['ملاحظات المراقب']}
-        </div>
-        """, unsafe_allow_html=True)
-    # -------------------------------
-
+        st.markdown(f"<div class='observer-notes'><b>📝 ملاحظات المراقب:</b><br>{row['ملاحظات المراقب']}</div>", unsafe_allow_html=True)
     st.progress(score / 100.0)
-    
-    c1, c2 = st.columns(2)
-    with c1:
-        st.markdown(f"<div class='stat-box-popup'>نسبة الإنجاز<br><span class='val-green'>{score}%</span></div>", unsafe_allow_html=True)
-    with c2:
-        st.markdown(f"<div class='stat-box-popup'>النواقص<br><span class='val-red'>{len(missing_list)}</span></div>", unsafe_allow_html=True)
-    
     st.divider()
-    if not missing_list:
-        st.success("🌟 العمل مكتمل بنسبة 100%!")
+    if not missing_list: st.success("🌟 العمل مكتمل بنسبة 100%!")
     else:
         st.write("**البنود غير المكتملة:**")
-        for item in missing_list:
-            st.markdown(f"<div class='checklist-item-popup'>❌ {item}</div>", unsafe_allow_html=True)
+        for item in missing_list: st.error(f"❌ {item}")
 
 # 5. بناء واجهة المستخدم
 try:
@@ -133,21 +101,54 @@ try:
             st.rerun()
 
     if page == "📊 لوحة التحكم":
-        st.title("🕋 قطاع المشاعر b2b2c")
+        st.title("🕋 متابعة جاهزية قطاع المشاعر")
         
-        tab1, tab2 = st.tabs(["📊 الإحصائيات", "🏕️ خريطة المخيمات (Pop-up)"])
+        tab1, tab2 = st.tabs(["📊 الإحصائيات والتحليل", "🏕️ خريطة المواقع"])
         
         with tab1:
-            avg_total = int(df['Overall_Score'].mean())
-            st.metric("متوسط الجاهزية العام", f"{avg_total}%")
-            fig = px.bar(df, x='Unified_ID', y='Overall_Score', color='Overall_Score', color_continuous_scale='RdYlGn')
-            fig.update_xaxes(autorange="reversed")
-            st.plotly_chart(fig, use_container_width=True)
+            # تقسيم البيانات حسب الشركة
+            df_sana = df[df['شركة'].str.contains('سنا', na=False)]
+            df_rakeen = df[df['شركة'].str.contains('ركين', na=False)]
+
+            # --- قسم شركة سنا ---
+            st.markdown("### 🟡 شركة سنا (الباقة الذهبية)")
+            m1, m2, m3 = st.columns(3)
+            m1.metric("عدد المواقع", len(df_sana))
+            m2.metric("متوسط الجاهزية", f"{int(df_sana['Overall_Score'].mean())}%")
+            m3.metric("مواقع مكتملة", len(df_sana[df_sana['Overall_Score'] == 100]))
+            
+            fig_sana = px.bar(df_sana, x='Unified_ID', y='Overall_Score', 
+                             color='Overall_Score', color_continuous_scale='RdYlGn',
+                             title="جاهزية مواقع سنا", labels={'Overall_Score':'النسبة', 'Unified_ID':'رقم الموقع'})
+            st.plotly_chart(fig_sana, use_container_width=True)
+            
+            with st.expander("🔍 تفاصيل بيانات مواقع سنا والنواقص"):
+                st.dataframe(df_sana[['Unified_ID', 'Overall_Score', 'Missing_Details', 'ملاحظات المراقب']], 
+                             column_config={"Overall_Score": st.column_config.ProgressColumn("نسبة الإنجاز", min_value=0, max_value=100)},
+                             hide_index=True)
+
+            st.divider()
+
+            # --- قسم شركة ركين ---
+            st.markdown("### 🔵 شركة ركين (الباقة المتميزة)")
+            r1, r2, r3 = st.columns(3)
+            r1.metric("عدد المواقع", len(df_rakeen))
+            r2.metric("متوسط الجاهزية", f"{int(df_rakeen['Overall_Score'].mean())}%")
+            r3.metric("مواقع مكتملة", len(df_rakeen[df_rakeen['Overall_Score'] == 100]))
+
+            fig_rakeen = px.bar(df_rakeen, x='Unified_ID', y='Overall_Score', 
+                               color='Overall_Score', color_continuous_scale='Blues',
+                               title="جاهزية مواقع ركين", labels={'Overall_Score':'النسبة', 'Unified_ID':'رقم الموقع'})
+            st.plotly_chart(fig_rakeen, use_container_width=True)
+
+            with st.expander("🔍 تفاصيل بيانات مواقع ركين والنواقص"):
+                st.dataframe(df_rakeen[['Unified_ID', 'Overall_Score', 'Missing_Details', 'ملاحظات المراقب']], 
+                             column_config={"Overall_Score": st.column_config.ProgressColumn("نسبة الإنجاز", min_value=0, max_value=100)},
+                             hide_index=True)
 
         with tab2:
-            st.subheader("انقر على أي مخيم لمشاهدة التفاصيل في نافذة منبثقة")
-            st.markdown("🟡 سنا (الذهبية) | 🔵 ركين (المتميزة)")
-            
+            st.subheader("انقر على أي مخيم لمشاهدة التفاصيل")
+            st.markdown("🟡 سنا | 🔵 ركين")
             grid_cols = st.columns(5)
             for idx, row in df.iterrows():
                 company_icon = "🟡" if "سنا" in str(row['شركة']) else "🔵"
