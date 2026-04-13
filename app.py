@@ -5,84 +5,74 @@ import plotly.graph_objects as go
 import plotly.express as px
 
 # 1. إعدادات الصفحة
-st.set_page_config(page_title="لوحة قطاع المشاعر 2026 🚀", layout="wide")
+st.set_page_config(page_title="لوحة قطاع المشاعر 🚀", layout="wide")
 
-# 2. التنسيق الجمالي (CSS) - تحسين وضوح المنيو العلوي والألوان
+# 2. التنسيق الجمالي (CSS) - كسر اللون الأبيض وإعادة التصميم الكلاسيكي
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
     
-    /* ضبط الاتجاه العام */
-    [data-testid="stAppViewContainer"] {
+    /* تغيير خلفية التطبيق لكسر اللون الأبيض */
+    .stApp {
+        background-color: #f4f7f9;
         direction: rtl;
         text-align: right;
+    }
+
+    /* ضبط القائمة الجانبية لتكون واضحة ومنفصلة */
+    [data-testid="stSidebar"] {
+        background-color: #ffffff;
+        border-left: 1px solid #e2e8f0;
     }
 
     html, body, .stMarkdown, .stText, p, h1, h2, h3, h4, h5, h6, button {
         font-family: 'Cairo', sans-serif !important;
     }
 
-    /* --- تحسين المنيو العلوي (Tabs) ليكون بارزاً جداً --- */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 15px;
-        justify-content: center;
-        background-color: #f1f5f9;
-        padding: 10px;
-        border-radius: 15px;
-    }
-    
-    .stTabs [data-baseweb="tab"] {
-        height: 55px;
-        background-color: #ffffff;
-        border-radius: 10px;
-        padding: 0px 50px;
-        border: 1px solid #e2e8f0;
-        transition: all 0.3s ease;
-    }
-
-    /* شكل التبويب عند الاختيار */
-    .stTabs [aria-selected="true"] {
-        background-color: #1e293b !important; /* لون كحلي غامق */
-        color: white !important;
-        font-weight: bold;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    }
-    
-    /* تغيير لون النص داخل التبويب غير النشط */
-    .stTabs [data-baseweb="tab"] p {
-        font-size: 18px;
-    }
-
-    /* تنسيق أزرار المواقع */
+    /* تنسيق أزرار المواقع (الخريطة) */
     .stButton>button { 
-        border-radius: 12px; 
+        border-radius: 10px; 
         width: 100%; 
-        height: 75px; 
+        height: 70px; 
         font-weight: bold; 
-        border: 2px solid #f1f5f9;
         background-color: white;
-        transition: all 0.3s ease;
+        border: 1px solid #cbd5e1;
+        transition: all 0.2s;
         white-space: pre-line;
+        color: #1e293b;
     }
     .stButton>button:hover {
         border-color: #3b82f6;
-        transform: translateY(-2px);
+        background-color: #f8fafc;
     }
     
-    /* صناديق المعلومات */
+    /* صندوق ملاحظات المراقب المطور */
     .observer-notes-box {
-        background-color: #fefce8;
+        background-color: #fffbeb;
         padding: 20px;
         border-radius: 12px;
-        border-right: 6px solid #eab308;
+        border-right: 6px solid #d97706;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
     
+    .date-badge {
+        background-color: #fef3c7;
+        color: #92400e;
+        padding: 5px 12px;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: bold;
+        border: 1px solid #fbbf24;
+    }
+
     .checklist-item-popup { 
         background-color: #fef2f2; 
-        padding: 12px; 
+        padding: 10px; 
         border-radius: 8px; 
         margin-bottom: 6px; 
         border-right: 4px solid #ef4444; 
+        font-size: 14px;
         color: #991b1b;
     }
     </style>
@@ -118,15 +108,16 @@ def load_data():
         checklist_cols = df.columns[7:37]
         df[['Overall_Score', 'Missing_Details']] = df.apply(lambda row: analyze_readiness(row, checklist_cols), axis=1)
         df['Unified_ID'] = np.where(df['شركة'].str.contains('ركين', na=False), df.iloc[:, 5], df.iloc[:, 6])
-        df['Unified_ID'] = df['Unified_ID'].fillna("غير معرف").astype(str)
+        df['Unified_ID'] = df['Unified_ID'].fillna("غير معروف").astype(str)
         if 'التاريخ' not in df.columns:
             df['التاريخ'] = pd.Timestamp.now().strftime('%Y-%m-%d')
         return df.drop_duplicates(subset=['Unified_ID'], keep='last'), checklist_cols
-    except:
+    except Exception as e:
+        st.error(f"خطأ في جلب البيانات: {e}")
         return pd.DataFrame(), []
 
-# 4. النافذة المنبثقة
-@st.dialog("تقرير حالة الموقع الميداني 🏕️")
+# 4. النافذة المنبثقة (Pop-up)
+@st.dialog("تفاصيل الموقع والملاحظات 🏕️")
 def show_tent_details(row):
     score = int(row['Overall_Score'])
     missing_list = [item.strip() for item in str(row['Missing_Details']).split('،') if item.strip()]
@@ -139,64 +130,75 @@ def show_tent_details(row):
         st.markdown(f"<div style='text-align:center;'>الجاهزية<br><h1 style='color:#059669;'>{score}%</h1></div>", unsafe_allow_html=True)
 
     st.progress(score / 100.0)
-    st.markdown("### 📝 ملاحظات المراقب")
-    notes = row['ملاحظات المراقب'] if pd.notna(row['ملاحظات المراقب']) else "لا توجد ملاحظات."
-    st.markdown(f"<div class='observer-notes-box'><b>تاريخ التقرير: {row['التاريخ']}</b><br><br>{notes}</div>", unsafe_allow_html=True)
+    
+    st.markdown("### 📝 ملاحظات المراقب الميداني")
+    notes = row['ملاحظات المراقب'] if pd.notna(row['ملاحظات المراقب']) else "لا توجد ملاحظات حالية."
+    st.markdown(f"""
+    <div class="observer-notes-box">
+        <span class="date-badge">تحديث بتاريخ: {row['التاريخ']}</span><br><br>
+        {notes}
+    </div>
+    """, unsafe_allow_html=True)
 
-    st.markdown(f"### ⚠️ متبقي الأنشطة ({len(missing_list)})")
-    if not missing_list: st.success("🎉 مكتمل بالكامل")
+    st.markdown(f"### ⚠️ الأنشطة المتبقية ({len(missing_list)})")
+    if not missing_list: 
+        st.success("✅ العمل مكتمل بنسبة 100%")
     else:
-        for item in missing_list: st.markdown(f"<div class='checklist-item-popup'>❌ {item}</div>", unsafe_allow_html=True)
+        for item in missing_list: 
+            st.markdown(f"<div class='checklist-item-popup'>❌ {item}</div>", unsafe_allow_html=True)
 
-# 5. بناء الواجهة
+# 5. بناء واجهة التطبيق
 try:
     df, checklist_cols = load_data()
 
-    # السطر العلوي
-    head_col1, head_col2 = st.columns([5, 1.2])
-    with head_col1:
-        st.title("🕋 لوحة جاهزية قطاع المشاعر 2026")
-    with head_col2:
+    # القائمة الجانبية (Sidebar) عادت كما كانت
+    with st.sidebar:
+        st.image("https://cdn-icons-png.flaticon.com/512/1041/1041916.png", width=100)
+        st.header("لوحة التحكم")
+        page = st.radio("القائمة الرئيسية:", ["📊 الإحصائيات العامة", "🏕️ خريطة المخيمات"])
+        st.divider()
         if st.button("🔄 تحديث البيانات"):
             st.cache_data.clear()
             st.rerun()
 
-    # القائمة العلوية المحدثة
-    tab_stats, tab_map = st.tabs(["📊 الإحصائيات والتحليل", "🏕️ خريطة المواقع الميدانية"])
-
-    with tab_stats:
+    # محتوى الصفحات
+    if page == "📊 الإحصائيات العامة":
+        st.title("🕋 تحليل جاهزية قطاع المشاعر")
+        
         df_sana = df[df['شركة'].str.contains('سنا', na=False)]
         df_rakeen = df[df['شركة'].str.contains('ركين', na=False)]
 
-        # --- سنا (أحمر) ---
-        st.subheader("🔴 شركة سنا (الباقة الذهبية)")
+        # --- شركة سنا (بني) مع النسب المئوية ---
+        st.subheader("🟤 شركة سنا (الباقة الذهبية)")
         fig_sana = px.bar(df_sana, x='Unified_ID', y='Overall_Score', text='Overall_Score',
-                         color_discrete_sequence=['#B91C1C']) # أحمر
+                         color_discrete_sequence=['#5D4037']) # اللون البني
         fig_sana.update_traces(texttemplate='%{text}%', textposition='outside')
-        fig_sana.update_layout(yaxis=dict(range=[0, 125]), margin=dict(t=30))
+        fig_sana.update_layout(yaxis=dict(range=[0, 120]), margin=dict(t=30))
         st.plotly_chart(fig_sana, use_container_width=True)
 
         st.divider()
 
-        # --- ركين (بني) ---
-        st.subheader("🟤 شركة ركين (الباقة المتميزة)")
+        # --- شركة ركين (أحمر) مع النسب المئوية ---
+        st.subheader("🔴 شركة ركين (الباقة المتميزة)")
         fig_rakeen = px.bar(df_rakeen, x='Unified_ID', y='Overall_Score', text='Overall_Score',
-                           color_discrete_sequence=['#5D4037']) # بني
+                           color_discrete_sequence=['#B91C1C']) # اللون الأحمر
         fig_rakeen.update_traces(texttemplate='%{text}%', textposition='outside')
-        fig_rakeen.update_layout(yaxis=dict(range=[0, 125]), margin=dict(t=30))
+        fig_rakeen.update_layout(yaxis=dict(range=[0, 120]), margin=dict(t=30))
         st.plotly_chart(fig_rakeen, use_container_width=True)
 
-    with tab_map:
-        st.write("### توزيع المواقع")
-        st.markdown("🔴 سنا | 🟤 ركين")
+    elif page == "🏕️ خريطة المخيمات":
+        st.title("🏕️ خريطة توزيع المواقع")
+        st.write("انقر على أي موقع لمراجعة التفاصيل والملاحظات اليومية.")
         
+        # عرض المربعات (الأزرار)
         df_display = df.sort_values('Unified_ID')
         grid_cols = st.columns(6)
         for idx, (_, row) in enumerate(df_display.iterrows()):
-            icon = "🔴" if "سنا" in str(row['شركة']) else "🟤"
+            icon = "🟤" if "سنا" in str(row['شركة']) else "🔴"
             with grid_cols[idx % 6]:
-                if st.button(f"{icon} {row['Unified_ID']}\n{row['Overall_Score']}%", key=f"btn_nav_{idx}"):
+                label = f"{icon} {row['Unified_ID']}\n{row['Overall_Score']}%"
+                if st.button(label, key=f"camp_btn_{idx}"):
                     show_tent_details(row)
 
 except Exception as e:
-    st.error(f"حدث خطأ: {e}")
+    st.error(f"حدث خطأ غير متوقع: {e}")
