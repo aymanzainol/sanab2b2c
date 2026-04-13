@@ -7,36 +7,47 @@ import plotly.express as px
 # 1. إعدادات الصفحة
 st.set_page_config(page_title="لوحة قطاع المشاعر 2026 🚀", layout="wide")
 
-# 2. التنسيق الجمالي (CSS) - تم إصلاح مشاكل الـ Sidebar وتحسين استجابة العرض
+# 2. التنسيق الجمالي (CSS) - تم إلغاء السايدبار وضبط القائمة العلوية
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
     
-    /* إصلاح الاتجاه العام وتجاوب القائمة الجانبية */
+    /* ضبط الاتجاه العام للرؤية العربية */
     [data-testid="stAppViewContainer"] {
         direction: rtl;
         text-align: right;
-    }
-
-    /* إصلاح محتوى السايدبار عند التصغير */
-    [data-testid="stSidebarContent"] {
-        direction: rtl !important;
-        text-align: right !important;
     }
 
     html, body, .stMarkdown, .stText, p, h1, h2, h3, h4, h5, h6, button {
         font-family: 'Cairo', sans-serif !important;
     }
 
+    /* تحسين شكل التبويبات (Menu العلوي) */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 10px;
+        justify-content: center;
+    }
+    .stTabs [data-baseweb="tab"] {
+        height: 50px;
+        background-color: #f8fafc;
+        border-radius: 10px 10px 0px 0px;
+        gap: 8px;
+        padding: 0px 40px;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #e2e8f0 !important;
+        font-weight: bold;
+    }
+
     /* تنسيق أزرار المواقع */
     .stButton>button { 
         border-radius: 12px; 
         width: 100%; 
-        height: 65px; 
+        height: 70px; 
         font-weight: bold; 
         border: 1px solid #d1d5db;
         transition: all 0.2s;
-        white-space: pre-line; /* للسماح بنزول السطر داخل الزر */
+        white-space: pre-line;
     }
     
     /* صندوق ملاحظات المراقب */
@@ -130,47 +141,58 @@ def show_tent_details(row):
     else:
         for item in missing_list: st.markdown(f"<div class='checklist-item-popup'>❌ {item}</div>", unsafe_allow_html=True)
 
-# 5. واجهة التطبيق
+# 5. واجهة التطبيق الرئيسية (Top Menu)
 try:
     df, checklist_cols = load_data()
 
-    with st.sidebar:
-        st.header("⚙️ القائمة")
-        page = st.radio("انتقل إلى:", ["📊 الإحصائيات", "🏕️ خريطة المواقع"])
-        if st.button("🔄 تحديث"):
+    # العنوان وزر التحديث في السطر العلوي
+    head_col1, head_col2 = st.columns([5, 1])
+    with head_col1:
+        st.title("🕋 لوحة جاهزية قطاع المشاعر 2026")
+    with head_col2:
+        if st.button("🔄 تحديث البيانات"):
             st.cache_data.clear()
             st.rerun()
 
-    if page == "📊 الإحصائيات":
-        st.title("📊 تحليل الجاهزية")
-        
+    # القائمة العلوية باستخدام Tabs
+    tab_stats, tab_map = st.tabs(["📊 الإحصائيات والتحليل", "🏕️ خريطة المواقع الميدانية"])
+
+    # --- تبويب الإحصائيات ---
+    with tab_stats:
         df_sana = df[df['شركة'].str.contains('سنا', na=False)]
         df_rakeen = df[df['شركة'].str.contains('ركين', na=False)]
 
-        # --- سنا (بني) ---
-        st.subheader("🟤 شركة سنا")
+        # سنا (بني)
+        st.subheader("🟤 شركة سنا (الباقة الذهبية)")
         fig_sana = px.bar(df_sana, x='Unified_ID', y='Overall_Score', text='Overall_Score',
                          color_discrete_sequence=['#5D4037'])
         fig_sana.update_traces(texttemplate='%{text}%', textposition='outside')
-        fig_sana.update_layout(yaxis=dict(range=[0, 115])) # مساحة إضافية للنسبة
+        fig_sana.update_layout(yaxis=dict(range=[0, 120]), margin=dict(t=30))
         st.plotly_chart(fig_sana, use_container_width=True)
 
-        # --- ركين (أحمر) ---
-        st.subheader("🔴 شركة ركين")
+        st.divider()
+
+        # ركين (أحمر)
+        st.subheader("🔴 شركة ركين (الباقة المتميزة)")
         fig_rakeen = px.bar(df_rakeen, x='Unified_ID', y='Overall_Score', text='Overall_Score',
                            color_discrete_sequence=['#B91C1C'])
         fig_rakeen.update_traces(texttemplate='%{text}%', textposition='outside')
-        fig_rakeen.update_layout(yaxis=dict(range=[0, 115]))
+        fig_rakeen.update_layout(yaxis=dict(range=[0, 120]), margin=dict(t=30))
         st.plotly_chart(fig_rakeen, use_container_width=True)
 
-    elif page == "🏕️ خريطة المواقع":
-        st.title("🏕️ مواقع المشاعر")
+    # --- تبويب الخريطة ---
+    with tab_map:
+        st.write("### توزيع المواقع")
+        st.info("اضغط على أي موقع لمراجعة الملاحظات والأنشطة المتبقية")
+        
+        # ترتيب المواقع وعرضها
+        df_display = df.sort_values('Unified_ID')
         grid_cols = st.columns(6)
-        for idx, (_, row) in enumerate(df.sort_values('Unified_ID').iterrows()):
+        for idx, (_, row) in enumerate(df_display.iterrows()):
             icon = "🟤" if "سنا" in str(row['شركة']) else "🔴"
             with grid_cols[idx % 6]:
-                if st.button(f"{icon} {row['Unified_ID']}\n{row['Overall_Score']}%", key=f"btn_{idx}"):
+                if st.button(f"{icon} {row['Unified_ID']}\n{row['Overall_Score']}%", key=f"top_btn_{idx}"):
                     show_tent_details(row)
 
 except Exception as e:
-    st.error(f"حدث خطأ: {e}")
+    st.error(f"حدث خطأ غير متوقع: {e}")
