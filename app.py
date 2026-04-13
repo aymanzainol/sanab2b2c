@@ -23,17 +23,44 @@ st.markdown("""
     .bot-msg { background: #f0f2f6; border-radius: 15px; padding: 15px; margin: 10px 0; border-right: 5px solid #10ac84; text-align: right; }
     .user-msg { background: #e3f2fd; border-radius: 15px; padding: 15px; margin: 10px 0; border-right: 5px solid #1976d2; text-align: right; }
     
-    /* تنسيق بطاقات الحالة والنواقص */
+    /* تنسيق بطاقات الحالة العلوية */
     .status-card { padding: 20px; border-radius: 15px; margin-bottom: 15px; text-align: center; border-right: 10px solid; }
     .ok-bg { background-color: #d4edda; border-right-color: #28a745; color: #155724; }
     .warning-bg { background-color: #fff3cd; border-right-color: #ffc107; color: #856404; }
     
-    .missing-card { background: #fff5f5; border: 1px solid #fc8181; border-radius: 10px; padding: 20px; border-right: 8px solid #e53e3e; margin-top: 15px;}
-    .perfect-card { background: #f0fff4; border: 1px solid #68d391; border-radius: 10px; padding: 20px; border-right: 8px solid #38a169; margin-top: 15px;}
-    
     /* تنسيق أزرار المخيمات */
     .stButton>button { border-radius: 8px; width: 100%; transition: 0.3s; font-weight: bold; }
     .stButton>button:hover { transform: scale(1.02); border-color: #10ac84; }
+
+    /* التصميم الجديد لبطاقات الإحصائيات أسفل الخريطة */
+    .stat-box {
+        background: #ffffff;
+        padding: 20px;
+        border-radius: 12px;
+        text-align: center;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        border: 1px solid #e5e7eb;
+    }
+    .stat-label { color: #6b7280; font-size: 16px; font-weight: bold; }
+    .val-green { color: #10b981; font-size: 28px; font-weight: bold; margin: 10px 0; }
+    .val-red { color: #ef4444; font-size: 28px; font-weight: bold; margin: 10px 0; }
+    .val-orange { color: #f59e0b; font-size: 28px; font-weight: bold; margin: 10px 0; }
+
+    /* التصميم الجديد للنواقص (مريحة للعين) */
+    .checklist-item { 
+        background-color: #fdf2f2; 
+        padding: 15px 20px; 
+        border-radius: 10px; 
+        margin-bottom: 10px; 
+        border-right: 5px solid #ef4444; 
+        color: #991b1b;
+        font-weight: 600;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+    .perfect-card { background: #f0fff4; border: 1px solid #68d391; border-radius: 10px; padding: 20px; border-right: 8px solid #38a169; margin-top: 15px; text-align: center;}
     </style>
     """, unsafe_allow_html=True)
 
@@ -104,8 +131,7 @@ try:
         else:
             st.markdown(f'<div class="status-card warning-bg"><h2>الوضع العام: يحتاج متابعة ⚠️</h2>المعدل التراكمي: {avg_total}%</div>', unsafe_allow_html=True)
 
-        # التبويبات الداخلية للإحصائيات
-        tab1, tab2 = st.tabs(["📈 المؤشرات البيانية", "🏕️ خريطة المخيمات والنواقص (جديد)"])
+        tab1, tab2 = st.tabs(["📈 المؤشرات البيانية", "🏕️ خريطة المخيمات والنواقص (محدثة)"])
         
         with tab1:
             col1, col2 = st.columns([2, 1])
@@ -118,22 +144,18 @@ try:
                 st.subheader("🔍 تفاصيل سريعة")
                 st.dataframe(df[['Unified_ID', 'Overall_Score']].rename(columns={'Unified_ID': 'الموقع', 'Overall_Score': '%'}))
 
-        # --- الميزة الجديدة: خريطة المخيمات التفاعلية ---
+        # --- خريطة المخيمات (النسخة المريحة للعين) ---
         with tab2:
             st.subheader("إضغط على أي مخيم لمعرفة النواقص الخاصة به 🔍")
             st.markdown("**دليل الألوان:** 🟡 سنا (الذهبية) | 🔵 ركين (المتميزة)")
             
-            # تهيئة متغير الجلسة لحفظ المخيم المختار
             if 'selected_tent' not in st.session_state:
                 st.session_state.selected_tent = None
 
-            # إنشاء شبكة (Grid) لعرض الأزرار
-            cols = st.columns(4) # عرض 4 مخيمات في كل سطر
+            cols = st.columns(4) 
             for idx, row in df.iterrows():
                 tent_id = row['Unified_ID']
                 company = str(row['شركة'])
-                
-                # تحديد لون (رمز) الشركة
                 color_code = "🟡" if "سنا" in company else "🔵"
                 
                 col_idx = idx % 4
@@ -141,24 +163,37 @@ try:
                     if st.button(f"{color_code} {tent_id}", key=f"btn_{idx}"):
                         st.session_state.selected_tent = row
             
-            # عرض التفاصيل والنواقص للمخيم المختار أسفل الشبكة
+            # --- منطقة عرض التفاصيل الجديدة (Dashboard Style) ---
             if st.session_state.selected_tent is not None:
                 selected = st.session_state.selected_tent
-                st.markdown("---")
-                st.write(f"### 🏕️ تفاصيل موقع: {selected['Unified_ID']}")
-                st.write(f"**الشركة المنفذة:** {selected['شركة']} | **نسبة الإنجاز:** {selected['Overall_Score']}%")
+                score = int(selected['Overall_Score'])
+                missing_str = selected['Missing_Details']
+                missing_list = [item.strip() for item in missing_str.split('،') if item.strip()]
+                missing_count = len(missing_list)
                 
-                missing = selected['Missing_Details']
-                if not missing or missing.strip() == "":
-                    st.markdown('<div class="perfect-card"><h4>✅ جميع البنود مكتملة ومطابقة 100%! لا يوجد أي نواقص.</h4></div>', unsafe_allow_html=True)
+                st.divider()
+                st.markdown(f"### 📍 تفاصيل موقع: `{selected['Unified_ID']}`")
+                st.caption(f"الشركة المنفذة: **{selected['شركة']}**")
+                
+                # 1. شريط التقدم المرئي
+                st.progress(score / 100.0)
+                
+                # 2. بطاقات الأرقام السريعة
+                c1, c2, c3 = st.columns(3)
+                c1.markdown(f"<div class='stat-box'><div class='stat-label'>✅ الإنجاز المكتمل</div><div class='val-green'>{score}%</div></div>", unsafe_allow_html=True)
+                c2.markdown(f"<div class='stat-box'><div class='stat-label'>⏳ العمل المتبقي</div><div class='val-orange'>{100 - score}%</div></div>", unsafe_allow_html=True)
+                c3.markdown(f"<div class='stat-box'><div class='stat-label'>⚠️ عدد النواقص</div><div class='val-red'>{missing_count} بنود</div></div>", unsafe_allow_html=True)
+                
+                st.write("") # مسافة فارغة
+                
+                # 3. قائمة النواقص (مربعات واضحة ومريحة)
+                if missing_count == 0:
+                    st.markdown('<div class="perfect-card"><h3>🌟 عمل ممتاز! جميع البنود مكتملة 100%.</h3></div>', unsafe_allow_html=True)
                 else:
-                    st.markdown('<div class="missing-card"><h4>⚠️ بنود العمل غير المكتملة (النواقص):</h4><ul>', unsafe_allow_html=True)
-                    # تحويل النص المدمج إلى قائمة نقطية أنيقة
-                    missing_list = missing.split('،')
+                    st.markdown("#### 📋 بنود العمل التي تحتاج إلى إكمال:")
                     for item in missing_list:
-                        if item.strip():
-                            st.markdown(f"<li>{item.strip()}</li>", unsafe_allow_html=True)
-                    st.markdown('</ul></div>', unsafe_allow_html=True)
+                        # تحويل كل نص إلى بطاقة أنيقة مستقلة
+                        st.markdown(f"<div class='checklist-item'>⭕ <span>{item}</span></div>", unsafe_allow_html=True)
 
 
     # --- الصفحة الثانية: المساعد الذكي (Chatbot) ---
