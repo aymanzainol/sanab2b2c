@@ -30,14 +30,13 @@ st.markdown("""
     }
     .stButton > button:hover { border-color: #3b82f6 !important; transform: scale(1.05); }
 
-    /* --- صندوق الملاحظات المطور (كما في الصورة) --- */
+    /* --- صندوق الملاحظات المطور --- */
     .observer-notes-box {
         background-color: #1e1e1e; padding: 20px; border-radius: 15px;
         border-right: 6px solid #eab308; position: relative;
         margin-bottom: 20px; color: #e5e7eb !important;
     }
     
-    /* دائرة النسبة المئوية داخل الصندوق */
     .score-circle {
         position: absolute; left: 20px; top: 20px;
         width: 75px; height: 75px; border-radius: 50%;
@@ -53,7 +52,7 @@ st.markdown("""
         border: 1px solid #4b5563;
     }
     
-    .notes-content { margin-left: 90px; } /* لإعطاء مساحة للدائرة على اليسار */
+    .notes-content { margin-left: 90px; }
 
     .checklist-item-popup { 
         background-color: #450a0a; padding: 10px; border-radius: 8px; 
@@ -84,7 +83,9 @@ def analyze_readiness(row, checklist_cols):
             elif any(n in val for n in ['لا', 'غير', 'لم', 'ناقص', 'خطأ', '0']): current_score = 0.0
         if current_score is not None:
             scores.append(current_score)
-            if current_score < 100: missing_items.append(f"{col}")
+            # إضافة النسبة المئوية بجانب البند الناقص
+            if current_score < 100: 
+                missing_items.append(f"{col} ({int(current_score)}%)")
     return pd.Series([round(np.mean(scores)) if scores else 0, " | ".join(missing_items)])
 
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1pN31S92Xa4m-hilE-e56F9T6LuOhZLwPq6YWEnWP_xk/export?format=csv"
@@ -121,7 +122,7 @@ def show_tent_details(tent_id, full_df):
     
     score = int(row['Overall_Score'])
     
-    # --- تصميم صندوق الملاحظات مع النسبة المئوية ---
+    # --- تصميم صندوق الملاحظات (تعديل التسمية والنسبة) ---
     st.markdown(f"""
     <div class='observer-notes-box'>
         <div class='score-circle'>{score}%</div>
@@ -129,7 +130,7 @@ def show_tent_details(tent_id, full_df):
             <div class='staff-tag'>🤝 المعاون: {row['Assistant_Name']}</div><br>
             <div class='staff-tag'>👤 المراقب: {row['Supervisor_Name']}</div>
             <hr style='border: 0; border-top: 1px solid #374151; margin: 10px 0;'>
-            <b>ملاحظات الميدان:</b><br>
+            <b>ملاحظات المراقب:</b><br>
             {row['ملاحظات المراقب'] if pd.notna(row['ملاحظات المراقب']) and str(row['ملاحظات المراقب']).strip() != "" else 'لا توجد ملاحظات مكتوبة.'}
         </div>
     </div>
@@ -157,7 +158,16 @@ try:
 
     if page == "📊 الإحصائيات":
         st.title("📊 التحليل العام")
-        # نفس منطق الإحصائيات السابق...
+        for company, color in [("سنا", "#b91c1c"), ("ركين", "#8b5e3c")]:
+            sub_df = df_latest[df_latest['شركة'].str.contains(company, na=False)]
+            st.subheader(f"{'🔴' if company=='سنا' else '🟤'} شركة {company}")
+            if not sub_df.empty:
+                c1, c2 = st.columns([1, 4])
+                avg = round(sub_df['Overall_Score'].mean())
+                c1.metric("متوسط الإنجاز", f"{avg}%")
+                fig = px.bar(sub_df, x='Unified_ID', y='Overall_Score', color_discrete_sequence=[color], text='Overall_Score')
+                fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white")
+                c2.plotly_chart(fig, use_container_width=True)
     
     elif page == "🏕️ الخريطة":
         st.title("🏕️ خريطة المواقع")
