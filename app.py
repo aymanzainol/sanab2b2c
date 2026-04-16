@@ -18,46 +18,52 @@ st.markdown("""
         direction: rtl !important;
     }
 
-    /* --- أزرار الخريطة الموحدة --- */
-    div.stButton { display: flex; justify-content: center; align-items: center; margin-bottom: 12px; }
+    /* --- أزرار الخريطة الموحدة (تم زيادة الطول والعرض) --- */
+    div.stButton { display: flex; justify-content: center; align-items: center; margin-bottom: 15px; }
     .stButton > button {
-        width: 185px !important; height: 110px !important;
+        width: 100% !important; /* يأخذ العرض بالكامل ليكون أطول أفقياً */
+        min-height: 140px !important; /* تم زيادة الطول بشكل ملحوظ */
         border-radius: 15px !important; background-color: #1f2937 !important;
         border: 2px solid #374151 !important; color: white !important;
         display: flex !important; flex-direction: column !important;
         justify-content: center !important; align-items: center !important;
         text-align: center !important; transition: all 0.2s ease-in-out !important;
     }
+    .stButton > button div p {
+        font-size: 1.1rem !important; /* تكبير الخط قليلاً ليتناسب مع الحجم الجديد */
+    }
     .stButton > button:hover { border-color: #3b82f6 !important; transform: scale(1.05); }
 
     /* --- صندوق الملاحظات المطور --- */
     .observer-notes-box {
-        background-color: #1e1e1e; padding: 20px; border-radius: 15px;
+        background-color: #1e1e1e; padding: 25px; border-radius: 15px; /* زيادة الحشوة ليكون أطول */
         border-right: 6px solid #eab308; position: relative;
-        margin-bottom: 20px; color: #e5e7eb !important;
+        margin-bottom: 25px; color: #e5e7eb !important;
+        min-height: 120px; /* ضمان طول مناسب للصندوق */
     }
     
     .score-circle {
-        position: absolute; left: 20px; top: 20px;
-        width: 75px; height: 75px; border-radius: 50%;
+        position: absolute; left: 20px; top: 25px;
+        width: 80px; height: 80px; border-radius: 50%;
         background: #111827; border: 4px solid #eab308;
         display: flex; align-items: center; justify-content: center;
-        font-weight: bold; font-size: 1.2rem; color: #eab308;
+        font-weight: bold; font-size: 1.3rem; color: #eab308;
         box-shadow: 0 4px 10px rgba(0,0,0,0.5);
     }
 
     .staff-tag {
         display: inline-block; background-color: #374151; color: #9ca3af;
-        padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; margin-bottom: 8px;
+        padding: 6px 12px; border-radius: 6px; font-size: 0.9rem; margin-bottom: 10px;
         border: 1px solid #4b5563;
     }
     
-    .notes-content { margin-left: 90px; }
+    .notes-content { margin-left: 100px; }
 
+    /* --- النواقص (تم زيادة الطول) --- */
     .checklist-item-popup { 
-        background-color: #450a0a; padding: 10px; border-radius: 8px; 
-        margin-bottom: 6px; border-right: 4px solid #ef4444; color: #fecaca !important;
-        text-align: right; font-size: 0.9rem;
+        background-color: #450a0a; padding: 15px; border-radius: 8px; /* زيادة الطول الداخلي */
+        margin-bottom: 10px; border-right: 4px solid #ef4444; color: #fecaca !important;
+        text-align: right; font-size: 1rem;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -83,7 +89,6 @@ def analyze_readiness(row, checklist_cols):
             elif any(n in val for n in ['لا', 'غير', 'لم', 'ناقص', 'خطأ', '0']): current_score = 0.0
         if current_score is not None:
             scores.append(current_score)
-            # إضافة النسبة المئوية بجانب البند الناقص
             if current_score < 100: 
                 missing_items.append(f"{col} ({int(current_score)}%)")
     return pd.Series([round(np.mean(scores)) if scores else 0, " | ".join(missing_items)])
@@ -110,8 +115,8 @@ def load_data():
     df_latest = df.drop_duplicates(subset=['Unified_ID'], keep='first')
     return df, df_latest, checklist_cols
 
-# 3. النافذة المنبثقة المطورة
-@st.dialog("تفاصيل جاهزية الموقع 🏕️")
+# 3. النافذة المنبثقة المطورة (تم جعل النافذة large لتكون أوسع وأطول)
+@st.dialog("تفاصيل جاهزية الموقع 🏕️", width="large")
 def show_tent_details(tent_id, full_df):
     tent_history = full_df[full_df['Unified_ID'] == tent_id].copy()
     st.write(f"## موقع: {tent_id}")
@@ -122,7 +127,7 @@ def show_tent_details(tent_id, full_df):
     
     score = int(row['Overall_Score'])
     
-    # --- تصميم صندوق الملاحظات (تعديل التسمية والنسبة) ---
+    # --- تصميم صندوق الملاحظات ---
     st.markdown(f"""
     <div class='observer-notes-box'>
         <div class='score-circle'>{score}%</div>
@@ -172,6 +177,8 @@ try:
     elif page == "🏕️ الخريطة":
         st.title("🏕️ خريطة المواقع")
         df_sorted = df_latest.sort_values(by=['شركة', 'Unified_ID'])
+        
+        # تركنا الشبكة سداسية كما هي (دون مساس بالمنطق)
         grid_cols = st.columns(6) 
         for idx, (_, row) in enumerate(df_sorted.iterrows()):
             icon = "🔴" if "سنا" in str(row['شركة']) else "🟤"
