@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 
-# 1. إعدادات الصفحة
+# 1. إعدادات الصفحة والتنسيق
 st.set_page_config(page_title="لوحة قطاع المشاعر 2026 🚀", layout="wide")
 
 st.markdown("""
@@ -31,49 +31,41 @@ st.markdown("""
     .checklist-item-popup { 
         background-color: #450a0a; padding: 12px; border-radius: 8px; 
         margin-bottom: 6px; border-right: 4px solid #ef4444; color: #fecaca !important;
-        font-size: 14px;
     }
-    [data-testid="stMetricValue"] { color: #3b82f6 !important; }
+    /* تنسيق صندوق الاختيار (Dropdown) ليناسب الوضع الداكن */
+    div[data-baseweb="select"] > div {
+        background-color: #1f2937 !important;
+        color: white !important;
+        border-color: #374151 !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# 3. دوال تحليل البيانات - نسخة محسنة للتعامل مع الأعداد
+# 2. دوال تحليل البيانات
 def analyze_readiness(row, checklist_cols):
     scores = []
     missing_items = []
-    
     for col in checklist_cols:
         val = str(row[col]).strip()
-        if not val or val.lower() == 'nan' or val == "":
-            continue
-            
+        if not val or val.lower() == 'nan' or val == "": continue
         current_score = None
-        
-        # منطق جديد: إذا كان العمود يسأل عن "عدد" وكان هناك رقم أكبر من 0، نعتبره مكتمل 100%
         if "عدد" in col:
             try:
                 num_val = float(val.replace('%', ''))
-                if num_val >= 1: current_score = 100.0
-                else: current_score = 0.0
+                current_score = 100.0 if num_val >= 1 else 0.0
             except: pass
-
-        # إذا لم يتم تحديد النتيجة بعد، نستخدم المنطق العادي
         if current_score is None:
             if '%' in val:
                 try: current_score = float(val.replace('%', ''))
                 except: pass
-            elif any(p in val for p in ['نعم', 'مطابق', 'مكتمل', 'تم', 'يوجد', 'متوفر', 'جاهز', 'صح', '100']): 
-                current_score = 100.0
-            elif any(n in val for n in ['لا', 'غير', 'لم', 'ناقص', 'خطأ', '0']): 
-                current_score = 0.0
+            elif any(p in val for p in ['نعم', 'مطابق', 'مكتمل', 'تم', 'يوجد', 'متوفر', 'جاهز', 'صح', '100']): current_score = 100.0
+            elif any(n in val for n in ['لا', 'غير', 'لم', 'ناقص', 'خطأ', '0']): current_score = 0.0
         
         if current_score is not None:
             scores.append(current_score)
-            if current_score < 100:
-                missing_items.append(f"{col} (القيمة: {val})")
+            if current_score < 100: missing_items.append(f"{col} (القيمة: {val})")
             
-    avg_score = np.mean(scores) if scores else 0
-    return pd.Series([round(avg_score), " | ".join(missing_items)])
+    return pd.Series([round(np.mean(scores)) if scores else 0, " | ".join(missing_items)])
 
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1pN31S92Xa4m-hilE-e56F9T6LuOhZLwPq6YWEnWP_xk/export?format=csv"
 
@@ -82,48 +74,61 @@ def load_data():
     df = pd.read_csv(SHEET_URL)
     df.columns = [col.strip() for col in df.columns]
     
+    # تحديد الهوية الموحدة
     df['Unified_ID'] = np.where(df['شركة'].str.contains('ركين', na=False), df.iloc[:, 5], df.iloc[:, 6])
     df['Unified_ID'] = df['Unified_ID'].fillna("غير معرف").astype(str).str.strip()
     
+    # تحويل الوقت والترتيب
     if 'طابع زمني' in df.columns:
         df['طابع زمني'] = pd.to_datetime(df['طابع زمني'], dayfirst=True, errors='coerce')
-        df = df.sort_values(by='طابع زمني', ascending=True)
+        df = df.sort_values(by='طابع زمني', ascending=False) # الأحدث أولاً
     
-    df = df.drop_duplicates(subset=['Unified_ID'], keep='last')
-    
-    # تحديد الأعمدة من 7 إلى 37 كأعمدة الفحص
+    # حساب النتائج لكل السجلات (بما فيها القديمة)
     checklist_cols = df.columns[7:37]
     df[['Overall_Score', 'Missing_Details']] = df.apply(lambda row: analyze_readiness(row, checklist_cols), axis=1)
     
-    return df, checklist_cols
-
-# 4. النافذة المنبثقة
-@st.dialog("تقرير حالة الموقع التفصيلي 🏕️")
-def show_tent_details(row):
-    score = int(row['Overall_Score'])
-    missing_list = [item.strip() for item in str(row['Missing_Details']).split('|') if item.strip()]
+    # نسخة لأحدث البيانات فقط للعرض الرئيسي
+    df_latest = df.drop_duplicates(subset=['Unified_ID'], keep='first')
     
-    st.write(f"## موقع: {row['Unified_ID']}")
-    st.write(f"**الشركة:** {row['شركة']}")
-    st.write(f"### جاهزية الموقع: {score}%")
+    return df, df_latest, checklist_cols
+
+# 3. النافذة المنبثقة مع سجل التاريخ
+@st.dialog("سجل جاهزية الموقع 🏕️")
+def show_tent_details(tent_id, full_df):
+    # تصفية البيانات لهذا الموقع فقط
+    tent_history = full_df[full_df['Unified_ID'] == tent_id].copy()
+    
+    st.write(f"## موقع: {tent_id}")
+    st.write(f"**الشركة:** {tent_history['شركة'].iloc[0]}")
+    
+    # --- قائمة اختيار التاريخ ---
+    st.markdown("### 🕒 تاريخ التقييم")
+    dates = tent_history['طابع زمني'].dt.strftime('%Y-%m-%d %H:%M').tolist()
+    selected_date_str = st.selectbox("اختر تاريخاً لعرض حالة التقدم في ذلك الوقت:", dates)
+    
+    # جلب السجل المختار
+    selected_row = tent_history[tent_history['طابع زمني'].dt.strftime('%Y-%m-%d %H:%M') == selected_date_str].iloc[0]
+    
+    # --- عرض البيانات بناءً على التاريخ المختار ---
+    score = int(selected_row['Overall_Score'])
+    st.write(f"### نسبة الجاهزية بتاريخ {selected_date_str}: {score}%")
     st.progress(score / 100.0)
 
     st.markdown("### 📝 ملاحظات المراقب")
-    notes = row['ملاحظات المراقب'] if pd.notna(row['ملاحظات المراقب']) and str(row['ملاحظات المراقب']).strip() != "" else "لا توجد ملاحظات مسجلة."
-    # عرض التاريخ من الطابع الزمني إذا وجد
-    display_date = row['طابع زمني'].strftime('%Y-%m-%d') if 'طابع زمني' in row and pd.notnull(row['طابع زمني']) else "غير محدد"
-    st.markdown(f"<div class='observer-notes-box'><span class='date-badge'>{display_date}</span><br><br>{notes}</div>", unsafe_allow_html=True)
+    notes = selected_row['ملاحظات المراقب'] if pd.notna(selected_row['ملاحظات المراقب']) and str(selected_row['ملاحظات المراقب']).strip() != "" else "لا توجد ملاحظات."
+    st.markdown(f"<div class='observer-notes-box'>{notes}</div>", unsafe_allow_html=True)
 
+    missing_list = [item.strip() for item in str(selected_row['Missing_Details']).split('|') if item.strip()]
     st.markdown(f"### ⚠️ الأنشطة المتبقية ({len(missing_list)})")
     if not missing_list:
-        st.success("🎉 هذا الموقع مكتمل بنسبة 100%")
+        st.success("🎉 الموقع كان مكتملاً في هذا التاريخ")
     else:
         for item in missing_list:
             st.markdown(f"<div class='checklist-item-popup'>❌ {item}</div>", unsafe_allow_html=True)
 
-# 5. واجهة التطبيق الرئيسية
+# 4. واجهة التطبيق الرئيسية
 try:
-    df, checklist_cols = load_data()
+    df_full, df_latest, checklist_cols = load_data()
 
     top_menu_1, top_menu_2, top_menu_3 = st.columns([2, 3, 1])
     with top_menu_1: st.subheader("🚀 لوحة التحكم")
@@ -136,13 +141,13 @@ try:
     st.divider()
 
     if page == "📊 الإحصائيات":
-        st.title("📊 التحليل البياني للقطاع")
+        st.title("📊 التحليل البياني (آخر تحديث)")
         for company, color in [("سنا", "#b91c1c"), ("ركين", "#8b5e3c")]:
-            sub_df = df[df['شركة'].str.contains(company, na=False)]
+            sub_df = df_latest[df_latest['شركة'].str.contains(company, na=False)]
             st.subheader(f"{'🔴' if company=='سنا' else '🟤'} شركة {company}")
             c1, c2 = st.columns([1, 4])
             avg = round(sub_df['Overall_Score'].mean()) if not sub_df.empty else 0
-            c1.metric("متوسط الإنجاز", f"{avg}%")
+            c1.metric("متوسط الإنجاز الحالي", f"{avg}%")
             if not sub_df.empty:
                 fig = px.bar(sub_df, x='Unified_ID', y='Overall_Score', color_discrete_sequence=[color], text='Overall_Score')
                 fig.update_traces(texttemplate='%{text}%', textposition='outside')
@@ -151,14 +156,14 @@ try:
 
     elif page == "🏕️ الخريطة":
         st.title("🏕️ توزيع المواقع الميدانية")
-        df_sorted = df.sort_values(by=['شركة', 'Unified_ID'])
+        df_sorted = df_latest.sort_values(by=['شركة', 'Unified_ID'])
         grid_cols = st.columns(6)
         for idx, (_, row) in enumerate(df_sorted.iterrows()):
             icon = "🔴" if "سنا" in str(row['شركة']) else "🟤"
             with grid_cols[idx % 6]:
                 label = f"{icon} {row['Unified_ID']}\n{row['Overall_Score']}%"
                 if st.button(label, key=f"btn_{row['Unified_ID']}"):
-                    show_tent_details(row)
+                    show_tent_details(row['Unified_ID'], df_full)
 
 except Exception as e:
     st.error(f"⚠️ خطأ: {e}")
