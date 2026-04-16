@@ -26,17 +26,9 @@ st.markdown("""
         background-color: #1e1e1e; padding: 18px; border-radius: 12px;
         border-right: 6px solid #eab308; margin-bottom: 20px; color: #e5e7eb !important;
     }
-    .date-badge { background-color: #451a03; color: #fbbf24; padding: 4px 10px; border-radius: 6px; font-size: 13px; }
-    [data-testid="stSidebar"] { display: none; }
     .checklist-item-popup { 
         background-color: #450a0a; padding: 12px; border-radius: 8px; 
         margin-bottom: 6px; border-right: 4px solid #ef4444; color: #fecaca !important;
-    }
-    /* تنسيق صندوق الاختيار (Dropdown) ليناسب الوضع الداكن */
-    div[data-baseweb="select"] > div {
-        background-color: #1f2937 !important;
-        color: white !important;
-        border-color: #374151 !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -74,59 +66,62 @@ def load_data():
     df = pd.read_csv(SHEET_URL)
     df.columns = [col.strip() for col in df.columns]
     
-    # تحديد الهوية الموحدة
     df['Unified_ID'] = np.where(df['شركة'].str.contains('ركين', na=False), df.iloc[:, 5], df.iloc[:, 6])
     df['Unified_ID'] = df['Unified_ID'].fillna("غير معرف").astype(str).str.strip()
     
-    # تحويل الوقت والترتيب
+    # معالجة تنسيق الوقت العربي (م/ص)
     if 'طابع زمني' in df.columns:
-        df['طابع زمني'] = pd.to_datetime(df['طابع زمني'], dayfirst=True, errors='coerce')
-        df = df.sort_values(by='طابع زمني', ascending=False) # الأحدث أولاً
+        # استبدال ص بـ AM و م بـ PM ليفهمها النظام
+        df['temp_time'] = df['طابع زمني'].astype(str).str.replace('م', 'PM').str.replace('ص', 'AM')
+        df['طابع زمني_dt'] = pd.to_datetime(df['temp_time'], errors='coerce')
+        # ترتيب تنازلي (الأحدث فوق)
+        df = df.sort_values(by='طابع زمني_dt', ascending=False)
     
-    # حساب النتائج لكل السجلات (بما فيها القديمة)
     checklist_cols = df.columns[7:37]
     df[['Overall_Score', 'Missing_Details']] = df.apply(lambda row: analyze_readiness(row, checklist_cols), axis=1)
     
-    # نسخة لأحدث البيانات فقط للعرض الرئيسي
+    # النسخة الأحدث للعرض الرئيسي
     df_latest = df.drop_duplicates(subset=['Unified_ID'], keep='first')
     
     return df, df_latest, checklist_cols
 
-# 3. النافذة المنبثقة مع سجل التاريخ
+# 3. النافذة المنبثقة (تم تحديث منطق الاختيار لمنع الخطأ)
 @st.dialog("سجل جاهزية الموقع 🏕️")
 def show_tent_details(tent_id, full_df):
-    # تصفية البيانات لهذا الموقع فقط
     tent_history = full_df[full_df['Unified_ID'] == tent_id].copy()
     
+    if tent_history.empty:
+        st.error("لم يتم العثور على بيانات لهذا الموقع.")
+        return
+
     st.write(f"## موقع: {tent_id}")
-    st.write(f"**الشركة:** {tent_history['شركة'].iloc[0]}")
     
-    # --- قائمة اختيار التاريخ ---
-    st.markdown("### 🕒 تاريخ التقييم")
-    dates = tent_history['طابع زمني'].dt.strftime('%Y-%m-%d %H:%M').tolist()
-    selected_date_str = st.selectbox("اختر تاريخاً لعرض حالة التقدم في ذلك الوقت:", dates)
+    # استخدام التاريخ الأصلي كما هو في القائمة المنسدلة لضمان التطابق
+    history_options = tent_history['طابع زمني'].tolist()
+    selected_time = st.selectbox("اختر تاريخ التقرير:", history_options)
     
-    # جلب السجل المختار
-    selected_row = tent_history[tent_history['طابع زمني'].dt.strftime('%Y-%m-%d %H:%M') == selected_date_str].iloc[0]
+    # البحث عن الصف بناءً على النص المختار بدقة
+    selected_row = tent_history[tent_history['طابع زمني'] == selected_time]
     
-    # --- عرض البيانات بناءً على التاريخ المختار ---
-    score = int(selected_row['Overall_Score'])
-    st.write(f"### نسبة الجاهزية بتاريخ {selected_date_str}: {score}%")
-    st.progress(score / 100.0)
+    if not selected_row.empty:
+        row = selected_row.iloc[0]
+        score = int(row['Overall_Score'])
+        st.write(f"### نسبة الجاهزية: {score}%")
+        st.progress(score / 100.0)
 
-    st.markdown("### 📝 ملاحظات المراقب")
-    notes = selected_row['ملاحظات المراقب'] if pd.notna(selected_row['ملاحظات المراقب']) and str(selected_row['ملاحظات المراقب']).strip() != "" else "لا توجد ملاحظات."
-    st.markdown(f"<div class='observer-notes-box'>{notes}</div>", unsafe_allow_html=True)
+        st.markdown("### 📝 ملاحظات المراقب")
+        notes = row['ملاحظات المراقب'] if pd.notna(row['ملاحظات المراقب']) and str(row['ملاحظات المراقب']).strip() != "" else "لا توجد ملاحظات."
+        st.markdown(f"<div class='observer-notes-box'>{notes}</div>", unsafe_allow_html=True)
 
-    missing_list = [item.strip() for item in str(selected_row['Missing_Details']).split('|') if item.strip()]
-    st.markdown(f"### ⚠️ الأنشطة المتبقية ({len(missing_list)})")
-    if not missing_list:
-        st.success("🎉 الموقع كان مكتملاً في هذا التاريخ")
-    else:
-        for item in missing_list:
-            st.markdown(f"<div class='checklist-item-popup'>❌ {item}</div>", unsafe_allow_html=True)
+        missing_list = [item.strip() for item in str(row['Missing_Details']).split('|') if item.strip()]
+        st.markdown(f"### ⚠️ الأنشطة المتبقية")
+        if not missing_list:
+            st.success("🎉 الموقع مكتمل تماماً في هذا التاريخ")
+        else:
+            for item in missing_list:
+                st.markdown(f"<div class='checklist-item-popup'>❌ {item}</div>", unsafe_allow_html=True)
 
-# 4. واجهة التطبيق الرئيسية
+# 4. الواجهة الرئيسية
 try:
     df_full, df_latest, checklist_cols = load_data()
 
@@ -145,25 +140,23 @@ try:
         for company, color in [("سنا", "#b91c1c"), ("ركين", "#8b5e3c")]:
             sub_df = df_latest[df_latest['شركة'].str.contains(company, na=False)]
             st.subheader(f"{'🔴' if company=='سنا' else '🟤'} شركة {company}")
-            c1, c2 = st.columns([1, 4])
-            avg = round(sub_df['Overall_Score'].mean()) if not sub_df.empty else 0
-            c1.metric("متوسط الإنجاز الحالي", f"{avg}%")
             if not sub_df.empty:
+                c1, c2 = st.columns([1, 4])
+                avg = round(sub_df['Overall_Score'].mean())
+                c1.metric("متوسط الإنجاز", f"{avg}%")
                 fig = px.bar(sub_df, x='Unified_ID', y='Overall_Score', color_discrete_sequence=[color], text='Overall_Score')
-                fig.update_traces(texttemplate='%{text}%', textposition='outside')
-                fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white", yaxis=dict(range=[0, 110]))
+                fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white")
                 c2.plotly_chart(fig, use_container_width=True)
 
     elif page == "🏕️ الخريطة":
-        st.title("🏕️ توزيع المواقع الميدانية")
+        st.title("🏕️ خريطة المواقع")
         df_sorted = df_latest.sort_values(by=['شركة', 'Unified_ID'])
         grid_cols = st.columns(6)
         for idx, (_, row) in enumerate(df_sorted.iterrows()):
             icon = "🔴" if "سنا" in str(row['شركة']) else "🟤"
             with grid_cols[idx % 6]:
-                label = f"{icon} {row['Unified_ID']}\n{row['Overall_Score']}%"
-                if st.button(label, key=f"btn_{row['Unified_ID']}"):
+                if st.button(f"{icon} {row['Unified_ID']}\n{row['Overall_Score']}%", key=f"btn_{row['Unified_ID']}"):
                     show_tent_details(row['Unified_ID'], df_full)
 
 except Exception as e:
-    st.error(f"⚠️ خطأ: {e}")
+    st.error(f"⚠️ حدث خطأ أثناء تحميل البيانات: {e}")
