@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 
-# 1. Page Configuration & Styling
+# 1. إعدادات الصفحة والتنسيق
 st.set_page_config(page_title="لوحة قطاع المشاعر 2026 🚀", layout="wide")
 
 st.markdown("""
@@ -29,7 +29,8 @@ st.markdown("""
     }
     .staff-tag {
         display: inline-block; background-color: #374151; color: #9ca3af;
-        padding: 2px 8px; border-radius: 4px; font-size: 0.85rem; margin-bottom: 8px;
+        padding: 4px 10px; border-radius: 6px; font-size: 0.9rem; margin-bottom: 8px;
+        border: 1px solid #4b5563;
     }
     .checklist-item-popup { 
         background-color: #450a0a; padding: 12px; border-radius: 8px; 
@@ -38,7 +39,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Advanced Data Analysis Function
+# 2. دوال تحليل البيانات
 def analyze_readiness(row, checklist_cols):
     scores = []
     missing_items = []
@@ -47,7 +48,6 @@ def analyze_readiness(row, checklist_cols):
         if not val or val.lower() == 'nan' or val == "": continue
         
         current_score = None
-        # Logic for "Count" (عدد) columns
         if "عدد" in col:
             try:
                 num_val = float(val.replace('%', ''))
@@ -76,14 +76,14 @@ def load_data():
     df = pd.read_csv(SHEET_URL)
     df.columns = [col.strip() for col in df.columns]
     
-    # Unified ID Logic
+    # تحديد الهوية الموحدة
     df['Unified_ID'] = np.where(df['شركة'].str.contains('ركين', na=False), df.iloc[:, 5], df.iloc[:, 6])
     df['Unified_ID'] = df['Unified_ID'].fillna("غير معرف").astype(str).str.strip()
     
-    # --- NEW: Extract Assistant & Supervisor based on Company ---
-    # Assistant (المعاون) is usually Column B (Index 1)
+    # استخراج المعاون والمراقب بناءً على الشركة
+    # المعاون: العمود الثاني (Index 1)
     df['Assistant_Name'] = df.iloc[:, 1].fillna("غير مسجل")
-    # Supervisor (المراقب): Rakeen uses Index 2 (Column C), Sana uses Index 3 (Column D)
+    # المراقب: ركين (Index 2) / سنا (Index 3)
     df['Supervisor_Name'] = np.where(
         df['شركة'].str.contains('ركين', na=False), 
         df.iloc[:, 2], 
@@ -91,21 +91,21 @@ def load_data():
     )
     df['Supervisor_Name'] = df['Supervisor_Name'].fillna("غير مسجل")
 
-    # Arabic Timestamp Handling
+    # معالجة التاريخ والوقت
     if 'طابع زمني' in df.columns:
         df['temp_time'] = df['طابع زمني'].astype(str).str.replace('م', 'PM').str.replace('ص', 'AM')
         df['dt_object'] = pd.to_datetime(df['temp_time'], errors='coerce')
         df = df.sort_values(by='dt_object', ascending=False)
     
-    # Analysis
+    # تحليل الجاهزية
     checklist_cols = df.columns[7:37]
     df[['Overall_Score', 'Missing_Details']] = df.apply(lambda row: analyze_readiness(row, checklist_cols), axis=1)
     
     df_latest = df.drop_duplicates(subset=['Unified_ID'], keep='first')
     return df, df_latest, checklist_cols
 
-# 3. Enhanced Pop-up with History and Staff Details
-@st.dialog("سجل جاهزية الموقع والتفاصيل الميدانية 🏕️")
+# 3. النافذة المنبثقة
+@st.dialog("سجل جاهزية الموقع 🏕️")
 def show_tent_details(tent_id, full_df):
     tent_history = full_df[full_df['Unified_ID'] == tent_id].copy()
     
@@ -116,41 +116,40 @@ def show_tent_details(tent_id, full_df):
     st.write(f"## موقع: {tent_id}")
     st.write(f"**الشركة:** {tent_history['شركة'].iloc[0]}")
     
-    # Date History Selector
+    # قائمة اختيار التاريخ
     history_options = tent_history['طابع زمني'].tolist()
-    selected_time = st.selectbox("📅 اختر تاريخ التقرير لعرض الحالة:", history_options)
+    selected_time = st.selectbox("📅 اختر تاريخ التقرير:", history_options)
     
-    # Get details for selected timestamp
+    # جلب بيانات السجل المختار
     row = tent_history[tent_history['طابع زمني'] == selected_time].iloc[0]
     
     score = int(row['Overall_Score'])
     st.write(f"### نسبة الجاهزية: {score}%")
     st.progress(score / 100.0)
 
-    # --- Display Staff & Notes ---
-    st.markdown("### 📝 تفاصيل المراقب والملاحظات")
-    notes = row['ملاحظات المراقب'] if pd.notna(row['ملاحظات المراقب']) and str(row['ملاحظات المراقب']).strip() != "" else "لا توجد ملاحظات نصية."
+    # --- عرض المعاون والمراقب بالترتيب المطلوب ---
+    st.markdown("### 📝 تفاصيل الفريق والملاحظات")
+    notes = row['ملاحظات المراقب'] if pd.notna(row['ملاحظات المراقب']) and str(row['ملاحظات المراقب']).strip() != "" else "لا توجد ملاحظات."
     
-    # Combine Staff into the Notes Box
     st.markdown(f"""
     <div class='observer-notes-box'>
-        <div class='staff-tag'>👤 المراقب: {row['Supervisor_Name']}</div><br>
-        <div class='staff-tag'>🤝 المعاون: {row['Assistant_Name']}</div>
+        <div class='staff-tag'>🤝 المعاون: {row['Assistant_Name']}</div><br>
+        <div class='staff-tag'>👤 المراقب: {row['Supervisor_Name']}</div>
         <hr style='border: 0; border-top: 1px solid #374151; margin: 10px 0;'>
-        <b>الملاحظات:</b><br>{notes}
+        <b>الملاحظات الميدانية:</b><br>{notes}
     </div>
     """, unsafe_allow_html=True)
 
-    # Missing Activities
+    # الأنشطة المتبقية
     missing_list = [item.strip() for item in str(row['Missing_Details']).split('|') if item.strip()]
     st.markdown(f"### ⚠️ الأنشطة المتبقية")
     if not missing_list:
-        st.success("🎉 هذا الموقع مكتمل بنسبة 100% في هذا الوقت")
+        st.success("🎉 الموقع مكتمل تماماً في هذا التاريخ")
     else:
         for item in missing_list:
             st.markdown(f"<div class='checklist-item-popup'>❌ {item}</div>", unsafe_allow_html=True)
 
-# 4. Main UI
+# 4. الواجهة الرئيسية
 try:
     df_full, df_latest, checklist_cols = load_data()
 
