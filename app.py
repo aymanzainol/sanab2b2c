@@ -3,35 +3,27 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 
-# 1. إعدادات الصفحة والتنسيق (تركيز على محاذاة العناوين لليمين)
+# 1. إعدادات الصفحة والتنسيق (محاذاة اليمين وإعادة قسم التحليل)
 st.set_page_config(page_title="لوحة قطاع المشاعر 2026 🚀", layout="wide")
 
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
     
-    /* ضبط اتجاه التطبيق بالكامل */
     .stApp { 
         background-color: #0e1117; 
         color: #ffffff; 
         direction: rtl !important; 
-        text-align: right !important;
     }
 
-    /* محاذاة جميع أنواع العناوين لليمين */
+    /* محاذاة العناوين والنصوص لليمين */
     h1, h2, h3, h4, h5, h6, .stMarkdown, p, span, label {
         text-align: right !important;
         direction: rtl !important;
         font-family: 'Cairo', sans-serif !important;
     }
 
-    /* محاذاة حاويات العناوين في Streamlit */
-    [data-testid="stHeader"], [data-testid="stTitle"], [data-testid="stSubheader"] {
-        text-align: right !important;
-        width: 100% !important;
-    }
-
-    /* أزرار الخريطة (التنسيق المنظم المعتمد) */
+    /* أزرار الخريطة */
     div.stButton { display: flex; justify-content: flex-start; align-items: center; margin-bottom: 12px; }
     .stButton > button {
         width: 185px !important;
@@ -46,10 +38,9 @@ st.markdown("""
         align-items: center !important;
         text-align: center !important; 
     }
+    .stButton > button:hover { border-color: #3b82f6 !important; transform: scale(1.05); }
 
-    .stButton > button:hover { border-color: #3b82f6 !important; }
-
-    /* صندوق الملاحظات والنسبة */
+    /* صندوق الملاحظات */
     .observer-notes-box {
         background-color: #1e1e1e; padding: 20px; border-radius: 15px;
         border-right: 6px solid #eab308; position: relative;
@@ -68,12 +59,12 @@ st.markdown("""
     .checklist-item-popup { 
         background-color: #450a0a; padding: 10px; border-radius: 8px; 
         margin-bottom: 6px; border-right: 4px solid #ef4444; color: #fecaca !important;
-        text-align: right !important; direction: rtl !important;
+        text-align: right !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. الدوال ومعالجة البيانات
+# 2. معالجة البيانات
 def analyze_readiness(row, checklist_cols):
     scores = []
     missing_items = []
@@ -140,7 +131,7 @@ def show_tent_details(tent_id, full_df):
             <b>المراقب:</b> {row['Supervisor_Name']}
             <hr style='border: 0; border-top: 1px solid #374151; margin: 10px 0;'>
             <b>ملاحظات المراقب:</b><br>
-            {row['ملاحظات المراقب'] if pd.notna(row['ملاحظات المراقب']) else 'لا توجد ملاحظات.'}
+            {row['ملاحظات المراقب'] if pd.notna(row['ملاحظات المراقب']) and str(row['ملاحظات المراقب']).strip() != "" else 'لا توجد ملاحظات.'}
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -155,15 +146,34 @@ def show_tent_details(tent_id, full_df):
 try:
     df_full, df_latest, checklist_cols = load_data()
 
-    # محاذاة شريط التبويب لليمين
     st.markdown("<h1 style='text-align: right;'>🚀 لوحة متابعة قطاع المشاعر</h1>", unsafe_allow_html=True)
-    page = st.radio("اختر العرض:", ["📊 الإحصائيات", "🏕️ خريطة المواقع"], horizontal=True)
+    
+    # اختيار العرض
+    page = st.radio("اختر العرض:", ["📊 التحليل العام", "🏕️ خريطة المواقع"], horizontal=True)
     
     st.divider()
 
-    if page == "📊 الإحصائيات":
-        st.markdown("<h2 style='text-align: right;'>📊 التحليل العام</h2>", unsafe_allow_html=True)
-        # ... (باقي كود الإحصائيات مع محاذاة العناوين)
+    if page == "📊 التحليل العام":
+        st.markdown("<h2 style='text-align: right;'>📊 الإحصائيات العامة للمخيمات</h2>", unsafe_allow_html=True)
+        
+        for company, color in [("سنا", "#b91c1c"), ("ركين", "#8b5e3c")]:
+            sub_df = df_latest[df_latest['شركة'].str.contains(company, na=False)]
+            st.markdown(f"<h3 style='text-align: right;'>{'🔴' if company=='سنا' else '🟤'} شركة {company}</h3>", unsafe_allow_html=True)
+            
+            if not sub_df.empty:
+                c1, c2 = st.columns([1, 4])
+                avg = round(sub_df['Overall_Score'].mean())
+                c1.metric("متوسط الإنجاز", f"{avg}%")
+                
+                fig = px.bar(sub_df, x='Unified_ID', y='Overall_Score', color_discrete_sequence=[color], text='Overall_Score')
+                fig.update_layout(
+                    paper_bgcolor='rgba(0,0,0,0)', 
+                    plot_bgcolor='rgba(0,0,0,0)', 
+                    font_color="white",
+                    xaxis_title="رقم الموقع",
+                    yaxis_title="نسبة الجاهزية (%)"
+                )
+                c2.plotly_chart(fig, use_container_width=True)
     
     elif page == "🏕️ خريطة المواقع":
         st.markdown("<h2 style='text-align: right;'>🏕️ خريطة المواقع</h2>", unsafe_allow_html=True)
@@ -177,4 +187,4 @@ try:
                     show_tent_details(row['Unified_ID'], df_full)
 
 except Exception as e:
-    st.error(f"خطأ: {e}")
+    st.error(f"⚠️ خطأ: {e}")
